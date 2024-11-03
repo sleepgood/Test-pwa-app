@@ -54,7 +54,7 @@
                 video.playsinline = true;
 
                 // Wait until the video is ready to play
-                video.addEventListener('canplay', () => {
+                video.addEventListener('loadeddata', () => {
                     video.play();
                     createEchoFrames(video); // Start echo effect when video is ready
                 });
@@ -77,8 +77,9 @@
 
             // Update frames continuously
             function updateEcho() {
-                if (video.readyState >= video.HAVE_ENOUGH_DATA) {
-                    // Draw current video frame to each echo frame with fading and scaling
+                // Ensure the video feed is still running
+                if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                    // Draw the current video frame to each echo frame with fading and scaling
                     echoFrames.forEach((canvas, index) => {
                         const ctx = canvas.getContext('2d');
                         ctx.clearRect(0, 0, canvas.width, canvas.height);
