@@ -53,11 +53,11 @@
                 video.autoplay = true;
                 video.playsinline = true;
 
-                // Wait until the video is playing
-                await new Promise((resolve) => (video.onloadedmetadata = resolve));
-
-                // Start the echo effect loop
-                createEchoFrames(video);
+                // Wait until the video is ready to play
+                video.addEventListener('canplay', () => {
+                    video.play();
+                    createEchoFrames(video); // Start echo effect when video is ready
+                });
             } catch (error) {
                 console.error("Camera access error:", error);
                 alert("Camera access is required to run this AR experience.");
@@ -77,17 +77,19 @@
 
             // Update frames continuously
             function updateEcho() {
-                // Draw current video frame to each echo frame with fading and scaling
-                echoFrames.forEach((canvas, index) => {
-                    const ctx = canvas.getContext('2d');
-                    ctx.clearRect(0, 0, canvas.width, canvas.height);
-                    ctx.globalAlpha = (index + 1) / maxEchoFrames; // Fading effect
-                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                if (video.readyState >= video.HAVE_ENOUGH_DATA) {
+                    // Draw current video frame to each echo frame with fading and scaling
+                    echoFrames.forEach((canvas, index) => {
+                        const ctx = canvas.getContext('2d');
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        ctx.globalAlpha = (index + 1) / maxEchoFrames; // Fading effect
+                        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-                    // Scale and slightly move each frame for the trailing effect
-                    const scale = 1 + index * 0.02; // Adjust scale increment as desired
-                    canvas.style.transform = `scale(${scale}) translate(${index * 2}px, ${index * 2}px)`;
-                });
+                        // Scale and slightly move each frame for the trailing effect
+                        const scale = 1 + index * 0.02; // Adjust scale increment as desired
+                        canvas.style.transform = `scale(${scale}) translate(${index * 2}px, ${index * 2}px)`;
+                    });
+                }
 
                 requestAnimationFrame(updateEcho);
             }
