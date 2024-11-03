@@ -24,14 +24,6 @@
             text-shadow: 0 0 12px #fff, 0 0 24px #fff;
         }
 
-        #key-selector {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            font-size: 1em;
-            color: #fff;
-        }
-
         #color-picker {
             display: flex;
             gap: 15px;
@@ -90,23 +82,35 @@
             width: 200px;
         }
 
+        #keyboard {
+            display: flex;
+            gap: 5px;
+            margin-top: 20px;
+        }
+
+        .key {
+            width: 40px;
+            height: 100px;
+            background-color: #444;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 0.9em;
+            color: #fff;
+            transition: background-color 0.3s ease;
+        }
+
+        .key.active {
+            background-color: #888;
+            box-shadow: 0 0 10px 4px rgba(255, 255, 255, 0.7);
+        }
+
     </style>
 </head>
 <body>
     <h1>Thanks Lite-Brite</h1>
-
-    <div id="key-selector">
-        <label for="key-select">Key: </label>
-        <select id="key-select">
-            <option value="C">C</option>
-            <option value="D">D</option>
-            <option value="E">E</option>
-            <option value="F">F</option>
-            <option value="G">G</option>
-            <option value="A">A</option>
-            <option value="B">B</option>
-        </select>
-    </div>
 
     <div id="color-picker">
         <div class="color-option" data-color="white">
@@ -134,13 +138,23 @@
         <input type="range" id="tempo-slider" min="60" max="240" value="120">
     </div>
 
+    <div id="keyboard">
+        <div class="key" data-key="C">C</div>
+        <div class="key" data-key="D">D</div>
+        <div class="key" data-key="E">E</div>
+        <div class="key" data-key="F">F</div>
+        <div class="key" data-key="G">G</div>
+        <div class="key" data-key="A">A</div>
+        <div class="key" data-key="B">B</div>
+    </div>
+
     <script>
-        // Setup grid, color picker, and key selector
+        // Setup grid, color picker, and keyboard for key selection
         const grid = document.getElementById("grid");
         const colorPicker = document.getElementById("color-picker");
         const tempoSlider = document.getElementById("tempo-slider");
         const tempoDisplay = document.getElementById("tempo-display");
-        const keySelect = document.getElementById("key-select");
+        const keyboard = document.getElementById("keyboard");
 
         let currentColor = "white";
         let tempo = 120;
@@ -215,9 +229,16 @@
             }
         }
 
-        // Key selection change
-        keySelect.addEventListener("change", () => {
-            selectedKey = keySelect.value;
+        // Keyboard key selection
+        keyboard.addEventListener("click", (event) => {
+            const key = event.target.closest(".key");
+            if (key) {
+                selectedKey = key.getAttribute("data-key");
+                keyboard.querySelectorAll('.key').forEach(k => k.classList
+
+.remove('active'));
+                key.classList.add('active');
+            }
         });
 
         // Tempo control
@@ -241,9 +262,7 @@
             });
 
             stepIndex = (stepIndex + 1) % numCols;
-           
-
- setTimeout(playStep, (60000 / tempo) / 2);
+            setTimeout(playStep, (60000 / tempo) / 2);
         }
 
         // Play sound
