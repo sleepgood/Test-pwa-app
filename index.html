@@ -27,28 +27,53 @@
             align-items: center;
             text-align: center;
             color: #fff;
+            cursor: pointer;
         }
         
         #instructions {
             position: absolute;
             top: 20px;
             text-align: center;
+            padding: 20px;
+            background-color: rgba(0, 0, 0, 0.7);
+            border-radius: 10px;
         }
         
         #volume-display, #pitch-display {
             margin-top: 10px;
             font-size: 1.2em;
         }
+
+        #start-button {
+            padding: 15px 30px;
+            font-size: 1.2em;
+            background-color: #4CAF50;
+            border: none;
+            border-radius: 5px;
+            color: white;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+
+        #start-button:hover {
+            background-color: #45a049;
+        }
+
+        #status {
+            margin-top: 10px;
+            color: #ff9800;
+        }
     </style>
 </head>
 <body>
-
     <div id="theremin-area">
         <div id="instructions">
             <h1>Web Theremin</h1>
             <p>Touch and drag vertically for pitch, horizontally for volume</p>
             <div id="pitch-display">Pitch: 440 Hz</div>
             <div id="volume-display">Volume: 50%</div>
+            <div id="status">Click the button below to start</div>
+            <button id="start-button">Start Theremin</button>
         </div>
     </div>
 
@@ -56,23 +81,39 @@
         const thereminArea = document.getElementById('theremin-area');
         const pitchDisplay = document.getElementById('pitch-display');
         const volumeDisplay = document.getElementById('volume-display');
+        const startButton = document.getElementById('start-button');
+        const statusDisplay = document.getElementById('status');
 
-        // Audio context setup
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        let audioCtx = null;
         let oscillator = null;
         let gainNode = null;
-
         let isPlaying = false;
 
-        // Function to initialize the audio context and oscillator
+        // Function to initialize audio context
+        async function initAudio() {
+            try {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                await audioCtx.resume();
+                statusDisplay.textContent = 'Audio ready! Touch or click the screen';
+                statusDisplay.style.color = '#4CAF50';
+                startButton.style.display = 'none';
+                
+                startTheremin();
+            } catch (error) {
+                statusDisplay.textContent = 'Error initializing audio: ' + error.message;
+                statusDisplay.style.color = '#ff0000';
+            }
+        }
+
+        // Function to initialize the oscillator
         function startTheremin() {
-            if (!isPlaying) {
+            if (!isPlaying && audioCtx) {
                 oscillator = audioCtx.createOscillator();
                 gainNode = audioCtx.createGain();
 
                 oscillator.type = 'sine';
-                oscillator.frequency.setValueAtTime(440, audioCtx.currentTime); // A4
-                gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime); // 50% volume
+                oscillator.frequency.setValueAtTime(440, audioCtx.currentTime);
+                gainNode.gain.setValueAtTime(0, audioCtx.currentTime); // Start with volume at 0
 
                 oscillator.connect(gainNode);
                 gainNode.connect(audioCtx.destination);
@@ -82,49 +123,69 @@
             }
         }
 
-        // Function to update pitch based on vertical touch position
         function updatePitch(yPosition) {
-            const maxFrequency = 1000; // Max pitch frequency
-            const minFrequency = 100; // Min pitch frequency
+            if (!isPlaying) return;
+            const maxFrequency = 1000;
+            const minFrequency = 100;
             const pitchRange = maxFrequency - minFrequency;
-
-            // Map y position to frequency
+            
             const frequency = maxFrequency - ((yPosition / window.innerHeight) * pitchRange);
             oscillator.frequency.setValueAtTime(frequency, audioCtx.currentTime);
             pitchDisplay.textContent = `Pitch: ${frequency.toFixed(1)} Hz`;
         }
 
-        // Function to update volume based on horizontal touch position
         function updateVolume(xPosition) {
+            if (!isPlaying) return;
             const volume = xPosition / window.innerWidth;
             gainNode.gain.setValueAtTime(volume, audioCtx.currentTime);
             volumeDisplay.textContent = `Volume: ${(volume * 100).toFixed(0)}%`;
         }
 
-        // Start audio on first touch
+        // Event Listeners
+        startButton.addEventListener('click', initAudio);
+
+        // Handle both touch and mouse events
         thereminArea.addEventListener('touchstart', (e) => {
-            if (audioCtx.state === 'suspended') {
+            e.preventDefault();
+            if (audioCtx && audioCtx.state === 'suspended') {
                 audioCtx.resume();
             }
-            startTheremin();
             const touch = e.touches[0];
             updatePitch(touch.clientY);
             updateVolume(touch.clientX);
         });
 
-        // Update pitch and volume on touch move
+        thereminArea.addEventListener('mousedown', (e) => {
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            updatePitch(e.clientY);
+            updateVolume(e.clientX);
+        });
+
         thereminArea.addEventListener('touchmove', (e) => {
-            if (isPlaying) {
-                const touch = e.touches[0];
-                updatePitch(touch.clientY);
-                updateVolume(touch.clientX);
+            e.preventDefault();
+            const touch = e.touches[0];
+            updatePitch(touch.clientY);
+            updateVolume(touch.clientX);
+        });
+
+        thereminArea.addEventListener('mousemove', (e) => {
+            if (e.buttons > 0) {
+                updatePitch(e.clientY);
+                updateVolume(e.clientX);
             }
         });
 
-        // Stop sound on touch end
         thereminArea.addEventListener('touchend', () => {
             if (isPlaying) {
-                gainNode.gain.setValueAtTime(0, audioCtx.currentTime); // Mute the volume on touch end
+                gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+            }
+        });
+
+        thereminArea.addEventListener('mouseup', () => {
+            if (isPlaying) {
+                gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
             }
         });
     </script>
