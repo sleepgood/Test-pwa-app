@@ -136,33 +136,53 @@
         let currentColor = "white";
         let tempo = 120;
         let stepIndex = 0;
-        let activeOscillators = [];
+        let isPlaying = true;
+        let lastPegToggleTime = 0;
+        let audioCtx = null;
+        let masterGain = null;
 
         // Define frequencies for Cmaj6 (C4, E4, G4, A4, C5, E5)
         const frequencies = [261.63, 329.63, 392.00, 440.00, 523.25, 659.25, 783.99, 987.77];
 
         const waveforms = {
-            "white": { type: "sine", volume: 0.2 },
-            "green": { type: "triangle", volume: 0.2 },
-            "red": { type: "square", volume: 0.1 },
-            "blue": { type: "sawtooth", volume: 0.15 }
+            "white": { type: "sine", volume: 0.15 },
+            "green": { type: "triangle", volume: 0.15 },
+            "red": { type: "square", volume: 0.08 },
+            "blue": { type: "sawtooth", volume: 0.1 }
         };
 
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const masterGain = audioCtx.createGain();
-        masterGain.gain.value = 0.5;
-        masterGain.connect(audioCtx.destination);
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                masterGain = audioCtx.createGain();
+                masterGain.gain.value = 0.5;
+                masterGain.connect(audioCtx.destination);
+            }
+        }
 
         const numRows = 10;
         const numCols = 10;
         const pegs = [];
+
+        // Create audio pools for each frequency
+        const audioPools = frequencies.map(freq => ({
+            frequency: freq,
+            nodes: new Set()
+        }));
 
         for (let i = 0; i < numRows * numCols; i++) {
             const peg = document.createElement("div");
             peg.classList.add("peg");
             peg.dataset.active = "false";
             peg.dataset.color = "";
-            peg.addEventListener("click", () => togglePeg(peg));
+            peg.addEventListener("click", () => {
+                // Rate limit peg toggling
+                const now = Date.now();
+                if (now - lastPegToggleTime > 50) { // 50ms minimum between toggles
+                    togglePeg(peg);
+                    lastPegToggleTime = now;
+                }
+            });
             grid.appendChild(peg);
             pegs.push(peg);
         }
@@ -179,6 +199,7 @@
         });
 
         function togglePeg(peg) {
+            initAudio();
             if (peg.dataset.active === "true") {
                 peg.dataset.active = "false";
                 peg.style.backgroundColor = "#333";
@@ -197,17 +218,68 @@
             tempoDisplay.innerText = tempo;
         });
 
-        function stopActiveOscillators() {
-            activeOscillators.forEach(osc => {
-                osc.stop();
-                osc.disconnect();
+        function cleanupAudioNodes() {
+            audioPools.forEach(pool => {
+                pool.nodes.forEach(node => {
+                    if (node.oscillator) {
+                        try {
+                            node.oscillator.stop();
+                            node.oscillator.disconnect();
+                        } catch (e) {}
+                    }
+                    if (node.gain) {
+                        try {
+                            node.gain.disconnect();
+                        } catch (e) {}
+                    }
+                });
+                pool.nodes.clear();
             });
-            activeOscillators = [];
+        }
+
+        function playSound(frequency, waveform, volume) {
+            if (!audioCtx) return;
+
+            const pool = audioPools.find(p => p.frequency === frequency);
+            if (!pool) return;
+
+            // Clean up old nodes if we have too many
+            if (pool.nodes.size > 3) {
+                cleanupAudioNodes();
+            }
+
+            try {
+                const oscillator = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+
+                oscillator.type = waveform;
+                oscillator.frequency.setValueAtTime(frequency, audioCtx.currentTime);
+
+                gainNode.gain.setValueAtTime(volume, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+
+                oscillator.connect(gainNode);
+                gainNode.connect(masterGain);
+
+                oscillator.start();
+                pool.nodes.add({ oscillator, gain: gainNode });
+
+                setTimeout(() => {
+                    try {
+                        oscillator.stop();
+                        oscillator.disconnect();
+                        gainNode.disconnect();
+                        pool.nodes.delete({ oscillator, gain: gainNode });
+                    } catch (e) {}
+                }, 300);
+            } catch (e) {
+                console.error("Audio error:", e);
+            }
         }
 
         function playStep() {
-            stopActiveOscillators();
-            
+            if (!isPlaying) return;
+
             const stepPegs = pegs.slice(stepIndex * numRows, (stepIndex + 1) * numRows);
             
             stepPegs.forEach((peg, rowIndex) => {
@@ -215,27 +287,7 @@
                     const color = peg.dataset.color;
                     const frequency = frequencies[rowIndex];
                     const { type, volume } = waveforms[color];
-                    
-                    const oscillator = audioCtx.createOscillator();
-                    const gainNode = audioCtx.createGain();
-                    
-                    oscillator.type = type;
-                    oscillator.frequency.setValueAtTime(frequency, audioCtx.currentTime);
-                    
-                    gainNode.gain.setValueAtTime(volume, audioCtx.currentTime);
-                    gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
-                    
-                    oscillator.connect(gainNode);
-                    gainNode.connect(masterGain);
-                    
-                    oscillator.start();
-                    activeOscillators.push(oscillator);
-                    
-                    setTimeout(() => {
-                        oscillator.stop();
-                        oscillator.disconnect();
-                        gainNode.disconnect();
-                    }, 400);
+                    playSound(frequency, type, volume);
                 }
             });
 
@@ -243,7 +295,14 @@
             setTimeout(playStep, (60000 / tempo) / 2);
         }
 
-        playStep();
+        // Start on user interaction
+        document.body.addEventListener('click', () => {
+            initAudio();
+            if (!isPlaying) {
+                isPlaying = true;
+                playStep();
+            }
+        }, { once: true });
     </script>
 </body>
 </html>
