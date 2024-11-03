@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Thanks Lite-Brite</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <style>
         body, html {
             margin: 0;
@@ -31,6 +32,7 @@
             font-size: 1em;
             color: #fff;
             opacity: 0.7;
+            cursor: pointer;
         }
 
         #color-picker {
@@ -108,15 +110,15 @@
         </div>
         <div class="color-option" data-color="green">
             <div class="color-box" style="background-color: green;"></div>
-            <span>Triangle Wave</span>
+            <span>FM Synth</span>
         </div>
         <div class="color-option" data-color="red">
             <div class="color-box" style="background-color: red;"></div>
-            <span>Square Wave</span>
+            <span>AM Synth</span>
         </div>
         <div class="color-option" data-color="blue">
             <div class="color-box" style="background-color: blue;"></div>
-            <span>Sawtooth Wave</span>
+            <span>Pluck</span>
         </div>
     </div>
 
@@ -132,57 +134,57 @@
         const colorPicker = document.getElementById("color-picker");
         const tempoSlider = document.getElementById("tempo-slider");
         const tempoDisplay = document.getElementById("tempo-display");
+        const soundIndicator = document.getElementById("sound-indicator");
 
         let currentColor = "white";
         let tempo = 120;
         let stepIndex = 0;
-        let isPlaying = true;
-        let lastPegToggleTime = 0;
-        let audioCtx = null;
-        let masterGain = null;
+        let isPlaying = false;
 
-        // Define frequencies for Cmaj6 (C4, E4, G4, A4, C5, E5)
-        const frequencies = [261.63, 329.63, 392.00, 440.00, 523.25, 659.25, 783.99, 987.77];
+        // Create synths for each type of sound
+        const sineSynth = new Tone.PolySynth(Tone.Synth, {
+            oscillator: { type: "sine" },
+            envelope: { attack: 0.05, decay: 0.3, sustain: 0.4, release: 0.4 }
+        }).toDestination();
+        sineSynth.volume.value = -12;
 
-        const waveforms = {
-            "white": { type: "sine", volume: 0.15 },
-            "green": { type: "triangle", volume: 0.15 },
-            "red": { type: "square", volume: 0.08 },
-            "blue": { type: "sawtooth", volume: 0.1 }
+        const fmSynth = new Tone.PolySynth(Tone.FMSynth, {
+            harmonicity: 2,
+            modulationIndex: 3,
+            envelope: { attack: 0.05, decay: 0.3, sustain: 0.4, release: 0.4 }
+        }).toDestination();
+        fmSynth.volume.value = -15;
+
+        const amSynth = new Tone.PolySynth(Tone.AMSynth, {
+            harmonicity: 2,
+            envelope: { attack: 0.05, decay: 0.3, sustain: 0.4, release: 0.4 }
+        }).toDestination();
+        amSynth.volume.value = -18;
+
+        const pluckSynth = new Tone.PolySynth(Tone.PluckSynth).toDestination();
+        pluckSynth.volume.value = -12;
+
+        // Map colors to synths
+        const synthMap = {
+            "white": sineSynth,
+            "green": fmSynth,
+            "red": amSynth,
+            "blue": pluckSynth
         };
 
-        function initAudio() {
-            if (!audioCtx) {
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                masterGain = audioCtx.createGain();
-                masterGain.gain.value = 0.5;
-                masterGain.connect(audioCtx.destination);
-            }
-        }
+        // Define notes for a pleasant scale (C major scale)
+        const notes = ["C4", "D4", "E4", "F4", "G4", "A4", "B4", "C5", "D5", "E5"];
 
         const numRows = 10;
         const numCols = 10;
         const pegs = [];
-
-        // Create audio pools for each frequency
-        const audioPools = frequencies.map(freq => ({
-            frequency: freq,
-            nodes: new Set()
-        }));
 
         for (let i = 0; i < numRows * numCols; i++) {
             const peg = document.createElement("div");
             peg.classList.add("peg");
             peg.dataset.active = "false";
             peg.dataset.color = "";
-            peg.addEventListener("click", () => {
-                // Rate limit peg toggling
-                const now = Date.now();
-                if (now - lastPegToggleTime > 50) { // 50ms minimum between toggles
-                    togglePeg(peg);
-                    lastPegToggleTime = now;
-                }
-            });
+            peg.addEventListener("click", () => togglePeg(peg));
             grid.appendChild(peg);
             pegs.push(peg);
         }
@@ -199,7 +201,10 @@
         });
 
         function togglePeg(peg) {
-            initAudio();
+            if (!isPlaying) {
+                startAudio();
+            }
+            
             if (peg.dataset.active === "true") {
                 peg.dataset.active = "false";
                 peg.style.backgroundColor = "#333";
@@ -216,93 +221,53 @@
         tempoSlider.addEventListener("input", () => {
             tempo = parseInt(tempoSlider.value);
             tempoDisplay.innerText = tempo;
+            Tone.Transport.bpm.value = tempo;
         });
 
-        function cleanupAudioNodes() {
-            audioPools.forEach(pool => {
-                pool.nodes.forEach(node => {
-                    if (node.oscillator) {
-                        try {
-                            node.oscillator.stop();
-                            node.oscillator.disconnect();
-                        } catch (e) {}
-                    }
-                    if (node.gain) {
-                        try {
-                            node.gain.disconnect();
-                        } catch (e) {}
-                    }
-                });
-                pool.nodes.clear();
-            });
-        }
-
-        function playSound(frequency, waveform, volume) {
-            if (!audioCtx) return;
-
-            const pool = audioPools.find(p => p.frequency === frequency);
-            if (!pool) return;
-
-            // Clean up old nodes if we have too many
-            if (pool.nodes.size > 3) {
-                cleanupAudioNodes();
+        soundIndicator.addEventListener("click", () => {
+            if (isPlaying) {
+                Tone.Transport.stop();
+                isPlaying = false;
+                soundIndicator.textContent = "Sound Off";
+            } else {
+                startAudio();
             }
-
-            try {
-                const oscillator = audioCtx.createOscillator();
-                const gainNode = audioCtx.createGain();
-
-                oscillator.type = waveform;
-                oscillator.frequency.setValueAtTime(frequency, audioCtx.currentTime);
-
-                gainNode.gain.setValueAtTime(volume, audioCtx.currentTime);
-                gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
-
-                oscillator.connect(gainNode);
-                gainNode.connect(masterGain);
-
-                oscillator.start();
-                pool.nodes.add({ oscillator, gain: gainNode });
-
-                setTimeout(() => {
-                    try {
-                        oscillator.stop();
-                        oscillator.disconnect();
-                        gainNode.disconnect();
-                        pool.nodes.delete({ oscillator, gain: gainNode });
-                    } catch (e) {}
-                }, 300);
-            } catch (e) {
-                console.error("Audio error:", e);
-            }
-        }
+        });
 
         function playStep() {
-            if (!isPlaying) return;
-
             const stepPegs = pegs.slice(stepIndex * numRows, (stepIndex + 1) * numRows);
             
             stepPegs.forEach((peg, rowIndex) => {
                 if (peg.dataset.active === "true") {
                     const color = peg.dataset.color;
-                    const frequency = frequencies[rowIndex];
-                    const { type, volume } = waveforms[color];
-                    playSound(frequency, type, volume);
+                    const synth = synthMap[color];
+                    const note = notes[rowIndex];
+                    
+                    if (synth && note) {
+                        synth.triggerAttackRelease(note, "16n");
+                    }
                 }
             });
 
             stepIndex = (stepIndex + 1) % numCols;
-            setTimeout(playStep, (60000 / tempo) / 2);
         }
 
-        // Start on user interaction
-        document.body.addEventListener('click', () => {
-            initAudio();
+        async function startAudio() {
+            await Tone.start();
             if (!isPlaying) {
                 isPlaying = true;
-                playStep();
+                soundIndicator.textContent = "Sound On";
+                stepIndex = 0;
+                Tone.Transport.bpm.value = tempo;
+                Tone.Transport.scheduleRepeat((time) => {
+                    playStep();
+                }, "8n");
+                Tone.Transport.start();
             }
-        }, { once: true });
+        }
+
+        // Start on first interaction
+        document.body.addEventListener('click', startAudio, { once: true });
     </script>
 </body>
 </html>
