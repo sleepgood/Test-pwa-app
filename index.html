@@ -24,6 +24,14 @@
             text-shadow: 0 0 12px #fff, 0 0 24px #fff;
         }
 
+        #key-selector {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 1em;
+            color: #fff;
+        }
+
         #color-picker {
             display: flex;
             gap: 15px;
@@ -49,8 +57,8 @@
 
         #grid {
             display: grid;
-            grid-template-columns: repeat(8, 20px); /* 8 columns for 8 steps */
-            grid-template-rows: repeat(6, 20px); /* 6 rows for 6 notes */
+            grid-template-columns: repeat(8, 40px); /* Increased size */
+            grid-template-rows: repeat(6, 40px); /* Increased size */
             gap: 5px;
             max-width: 100vw;
             margin-bottom: 10px;
@@ -58,15 +66,15 @@
         }
 
         .peg {
-            width: 20px;
-            height: 20px;
+            width: 40px;
+            height: 40px;
             border-radius: 50%;
             background-color: #111;
             transition: background-color 0.3s ease, box-shadow 0.3s ease;
         }
 
         .peg.active {
-            box-shadow: 0 0 5px 5px var(--color), 0 0 12px 12px var(--color), 0 0 20px 20px var(--color);
+            box-shadow: 0 0 8px 4px var(--color), 0 0 16px 8px var(--color);
             background-color: var(--color);
         }
 
@@ -86,6 +94,19 @@
 </head>
 <body>
     <h1>Thanks Lite-Brite</h1>
+
+    <div id="key-selector">
+        <label for="key-select">Key: </label>
+        <select id="key-select">
+            <option value="C">C</option>
+            <option value="D">D</option>
+            <option value="E">E</option>
+            <option value="F">F</option>
+            <option value="G">G</option>
+            <option value="A">A</option>
+            <option value="B">B</option>
+        </select>
+    </div>
 
     <div id="color-picker">
         <div class="color-option" data-color="white">
@@ -114,24 +135,38 @@
     </div>
 
     <script>
-        // Setup grid and color picker
+        // Setup grid, color picker, and key selector
         const grid = document.getElementById("grid");
         const colorPicker = document.getElementById("color-picker");
         const tempoSlider = document.getElementById("tempo-slider");
         const tempoDisplay = document.getElementById("tempo-display");
+        const keySelect = document.getElementById("key-select");
 
         let currentColor = "white";
         let tempo = 120;
         let stepIndex = 0;
+        let selectedKey = "C";
 
-        // Define frequencies for Cmaj6 (C4, E4, G4, A4, C5, E5)
-        const frequencies = [261.63, 329.63, 392.00, 440.00, 523.25, 659.25];
+        // Define frequencies for a base Cmaj6 (C4, E4, G4, A4, C5, E5) and adjust based on key
+        const baseFrequencies = {
+            "C": [261.63, 329.63, 392.00, 440.00, 523.25, 659.25],
+            "D": [293.66, 369.99, 440.00, 493.88, 587.33, 739.99],
+            "E": [329.63, 415.30, 493.88, 523.25, 659.25, 830.61],
+            "F": [349.23, 440.00, 523.25, 587.33, 698.46, 880.00],
+            "G": [392.00, 493.88, 587.33, 659.25, 783.99, 987.77],
+            "A": [440.00, 554.37, 659.25, 739.99, 880.00, 1108.73],
+            "B": [493.88, 622.25, 739.99, 830.61, 987.77, 1244.51]
+        };
+
+        function getFrequencies() {
+            return baseFrequencies[selectedKey];
+        }
 
         // Map colors to waveforms and volume adjustments
         const waveforms = {
             "white": { type: "sine", volume: 0.2 },
             "green": { type: "triangle", volume: 0.2 },
-            "red": { type: "square", volume: 0.15 }, // Reduced volume for square wave
+            "red": { type: "square", volume: 0.15 },
             "blue": { type: "sawtooth", volume: 0.2 }
         };
 
@@ -171,6 +206,7 @@
                 peg.dataset.active = "false";
                 peg.style.backgroundColor = "#111";
                 peg.dataset.color = "";
+                peg.classList.remove("active");
             } else {
                 peg.dataset.active = "true";
                 peg.style.setProperty("--color", currentColor);
@@ -178,6 +214,11 @@
                 peg.classList.add("active");
             }
         }
+
+        // Key selection change
+        keySelect.addEventListener("change", () => {
+            selectedKey = keySelect.value;
+        });
 
         // Tempo control
         tempoSlider.addEventListener("input", () => {
@@ -187,6 +228,7 @@
 
         // Play loop
         function playStep() {
+            const frequencies = getFrequencies();
             const stepPegs = pegs.slice(stepIndex * numRows, (stepIndex + 1) * numRows);
 
             stepPegs.forEach((peg, rowIndex) => {
@@ -199,7 +241,9 @@
             });
 
             stepIndex = (stepIndex + 1) % numCols;
-            setTimeout(playStep, (60000 / tempo) / 2);
+           
+
+ setTimeout(playStep, (60000 / tempo) / 2);
         }
 
         // Play sound
