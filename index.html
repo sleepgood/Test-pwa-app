@@ -15,36 +15,25 @@
             background-color: #222;
             color: #fff;
             font-family: Arial, sans-serif;
-            overflow: hidden;
         }
         
-        #theremin-area {
-            width: 100vw;
-            height: 100vh;
-            background: linear-gradient(90deg, #444, #888);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
-            color: #fff;
-            cursor: pointer;
-        }
-        
-        #instructions {
-            position: absolute;
-            top: 20px;
-            text-align: center;
+        #container {
+            width: 100%;
+            max-width: 800px;
             padding: 20px;
-            background-color: rgba(0, 0, 0, 0.7);
-            border-radius: 10px;
+            text-align: center;
         }
         
-        #volume-display, #pitch-display {
-            margin-top: 10px;
-            font-size: 1.2em;
+        #debug-info {
+            margin: 20px 0;
+            padding: 10px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 5px;
+            font-family: monospace;
+            text-align: left;
         }
-
-        #start-button {
+        
+        button {
             padding: 15px 30px;
             font-size: 1.2em;
             background-color: #4CAF50;
@@ -52,99 +41,207 @@
             border-radius: 5px;
             color: white;
             cursor: pointer;
-            margin-top: 20px;
+            margin: 10px;
         }
 
-        #start-button:hover {
-            background-color: #45a049;
+        button:disabled {
+            background-color: #666;
+            cursor: not-allowed;
         }
 
-        #status {
-            margin-top: 10px;
-            color: #ff9800;
+        #theremin-area {
+            width: 100%;
+            height: 300px;
+            background: linear-gradient(90deg, #444, #888);
+            margin: 20px 0;
+            border-radius: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
         }
+
+        .status-error { color: #ff4444; }
+        .status-success { color: #44ff44; }
+        .status-info { color: #4444ff; }
     </style>
 </head>
 <body>
-    <div id="theremin-area">
-        <div id="instructions">
-            <h1>Web Theremin</h1>
-            <p>Touch and drag vertically for pitch, horizontally for volume</p>
+    <div id="container">
+        <h1>Web Theremin</h1>
+        
+        <div id="debug-info">
+            Audio Context State: <span id="audio-state">Not initialized</span><br>
+            Browser Audio Support: <span id="browser-support">Checking...</span><br>
+            Current Status: <span id="current-status">Waiting to start</span>
+        </div>
+
+        <button id="start-button">Start Audio</button>
+        <button id="stop-button" disabled>Stop Audio</button>
+        
+        <div id="theremin-area">
+            <div id="touch-info">Click/touch here to play</div>
+        </div>
+        
+        <div id="controls">
             <div id="pitch-display">Pitch: 440 Hz</div>
-            <div id="volume-display">Volume: 50%</div>
-            <div id="status">Click the button below to start</div>
-            <button id="start-button">Start Theremin</button>
+            <div id="volume-display">Volume: 0%</div>
         </div>
     </div>
 
     <script>
+        // Debug elements
+        const audioStateEl = document.getElementById('audio-state');
+        const browserSupportEl = document.getElementById('browser-support');
+        const currentStatusEl = document.getElementById('current-status');
+        const startButton = document.getElementById('start-button');
+        const stopButton = document.getElementById('stop-button');
         const thereminArea = document.getElementById('theremin-area');
         const pitchDisplay = document.getElementById('pitch-display');
         const volumeDisplay = document.getElementById('volume-display');
-        const startButton = document.getElementById('start-button');
-        const statusDisplay = document.getElementById('status');
+        const touchInfo = document.getElementById('touch-info');
 
+        // Audio variables
         let audioCtx = null;
         let oscillator = null;
         let gainNode = null;
         let isPlaying = false;
 
-        // Function to initialize audio context
+        // Check browser support
+        function checkBrowserSupport() {
+            const hasAudioContext = !!(window.AudioContext || window.webkitAudioContext);
+            browserSupportEl.textContent = hasAudioContext ? "Supported" : "Not supported";
+            browserSupportEl.className = hasAudioContext ? "status-success" : "status-error";
+            return hasAudioContext;
+        }
+
+        // Initialize audio
         async function initAudio() {
             try {
+                currentStatusEl.textContent = "Initializing audio...";
+                
+                if (!checkBrowserSupport()) {
+                    throw new Error("Web Audio API not supported");
+                }
+
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                audioStateEl.textContent = audioCtx.state;
+                
                 await audioCtx.resume();
-                statusDisplay.textContent = 'Audio ready! Touch or click the screen';
-                statusDisplay.style.color = '#4CAF50';
-                startButton.style.display = 'none';
+                
+                currentStatusEl.textContent = "Audio initialized!";
+                currentStatusEl.className = "status-success";
+                
+                startButton.disabled = true;
+                stopButton.disabled = false;
                 
                 startTheremin();
+                
+                return true;
             } catch (error) {
-                statusDisplay.textContent = 'Error initializing audio: ' + error.message;
-                statusDisplay.style.color = '#ff0000';
+                currentStatusEl.textContent = `Error: ${error.message}`;
+                currentStatusEl.className = "status-error";
+                console.error("Audio initialization error:", error);
+                return false;
             }
         }
 
-        // Function to initialize the oscillator
         function startTheremin() {
-            if (!isPlaying && audioCtx) {
+            try {
                 oscillator = audioCtx.createOscillator();
                 gainNode = audioCtx.createGain();
 
                 oscillator.type = 'sine';
                 oscillator.frequency.setValueAtTime(440, audioCtx.currentTime);
-                gainNode.gain.setValueAtTime(0, audioCtx.currentTime); // Start with volume at 0
+                gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
 
                 oscillator.connect(gainNode);
                 gainNode.connect(audioCtx.destination);
                 oscillator.start();
-
                 isPlaying = true;
+
+                currentStatusEl.textContent = "Theremin ready! Click/touch the area to play";
+                touchInfo.textContent = "Click/touch and move to play";
+            } catch (error) {
+                currentStatusEl.textContent = `Error starting theremin: ${error.message}`;
+                currentStatusEl.className = "status-error";
+                console.error("Theremin start error:", error);
+            }
+        }
+
+        function stopTheremin() {
+            try {
+                if (oscillator) {
+                    oscillator.stop();
+                    oscillator.disconnect();
+                }
+                if (gainNode) {
+                    gainNode.disconnect();
+                }
+                isPlaying = false;
+                currentStatusEl.textContent = "Theremin stopped";
+                startButton.disabled = false;
+                stopButton.disabled = true;
+            } catch (error) {
+                console.error("Error stopping theremin:", error);
             }
         }
 
         function updatePitch(yPosition) {
-            if (!isPlaying) return;
-            const maxFrequency = 1000;
-            const minFrequency = 100;
-            const pitchRange = maxFrequency - minFrequency;
-            
-            const frequency = maxFrequency - ((yPosition / window.innerHeight) * pitchRange);
-            oscillator.frequency.setValueAtTime(frequency, audioCtx.currentTime);
-            pitchDisplay.textContent = `Pitch: ${frequency.toFixed(1)} Hz`;
+            if (!isPlaying || !oscillator) return;
+            try {
+                const rect = thereminArea.getBoundingClientRect();
+                const relativeY = yPosition - rect.top;
+                const maxFrequency = 1000;
+                const minFrequency = 100;
+                const pitchRange = maxFrequency - minFrequency;
+                
+                const frequency = maxFrequency - ((relativeY / rect.height) * pitchRange);
+                oscillator.frequency.setValueAtTime(Math.max(minFrequency, Math.min(maxFrequency, frequency)), audioCtx.currentTime);
+                pitchDisplay.textContent = `Pitch: ${frequency.toFixed(1)} Hz`;
+            } catch (error) {
+                console.error("Error updating pitch:", error);
+            }
         }
 
         function updateVolume(xPosition) {
-            if (!isPlaying) return;
-            const volume = xPosition / window.innerWidth;
-            gainNode.gain.setValueAtTime(volume, audioCtx.currentTime);
-            volumeDisplay.textContent = `Volume: ${(volume * 100).toFixed(0)}%`;
+            if (!isPlaying || !gainNode) return;
+            try {
+                const rect = thereminArea.getBoundingClientRect();
+                const relativeX = xPosition - rect.left;
+                const volume = Math.max(0, Math.min(1, relativeX / rect.width));
+                gainNode.gain.setValueAtTime(volume, audioCtx.currentTime);
+                volumeDisplay.textContent = `Volume: ${(volume * 100).toFixed(0)}%`;
+            } catch (error) {
+                console.error("Error updating volume:", error);
+            }
         }
 
         // Event Listeners
         startButton.addEventListener('click', initAudio);
+        stopButton.addEventListener('click', stopTheremin);
 
-        // Handle both touch and mouse events
+        thereminArea.addEventListener('mousedown', (e) => {
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            updatePitch(e.clientY);
+            updateVolume(e.clientX);
+        });
+
+        thereminArea.addEventListener('mousemove', (e) => {
+            if (e.buttons > 0) {
+                updatePitch(e.clientY);
+                updateVolume(e.clientX);
+            }
+        });
+
+        thereminArea.addEventListener('mouseup', () => {
+            if (isPlaying && gainNode) {
+                gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+            }
+        });
+
         thereminArea.addEventListener('touchstart', (e) => {
             e.preventDefault();
             if (audioCtx && audioCtx.state === 'suspended') {
@@ -155,14 +252,6 @@
             updateVolume(touch.clientX);
         });
 
-        thereminArea.addEventListener('mousedown', (e) => {
-            if (audioCtx && audioCtx.state === 'suspended') {
-                audioCtx.resume();
-            }
-            updatePitch(e.clientY);
-            updateVolume(e.clientX);
-        });
-
         thereminArea.addEventListener('touchmove', (e) => {
             e.preventDefault();
             const touch = e.touches[0];
@@ -170,24 +259,14 @@
             updateVolume(touch.clientX);
         });
 
-        thereminArea.addEventListener('mousemove', (e) => {
-            if (e.buttons > 0) {
-                updatePitch(e.clientY);
-                updateVolume(e.clientX);
-            }
-        });
-
         thereminArea.addEventListener('touchend', () => {
-            if (isPlaying) {
+            if (isPlaying && gainNode) {
                 gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
             }
         });
 
-        thereminArea.addEventListener('mouseup', () => {
-            if (isPlaying) {
-                gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
-            }
-        });
+        // Check browser support on load
+        checkBrowserSupport();
     </script>
 </body>
 </html>
