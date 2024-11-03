@@ -3,395 +3,284 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ondes Martenot Web Theremin</title>
+    <title>Thanks Lite-Brite</title>
     <style>
         body, html {
             margin: 0;
             padding: 0;
             display: flex;
-            justify-content: center;
+            flex-direction: column;
             align-items: center;
-            height: 100vh;
             background-color: #222;
             color: #fff;
             font-family: Arial, sans-serif;
+            overflow-x: hidden;
         }
-        
-        #container {
-            width: 100%;
-            max-width: 1000px;
-            padding: 20px;
-            text-align: center;
-        }
-        
-        #debug-info {
-            margin: 20px 0;
-            padding: 10px;
-            background: rgba(0,0,0,0.3);
-            border-radius: 5px;
-            font-family: monospace;
-            text-align: left;
-        }
-        
-        button {
-            padding: 15px 30px;
-            font-size: 1.2em;
-            background-color: #4CAF50;
-            border: none;
-            border-radius: 5px;
-            color: white;
-            cursor: pointer;
+
+        h1 {
             margin: 10px;
+            font-size: 2em;
+            text-align: center;
+            text-shadow: 0 0 12px #fff, 0 0 24px #fff;
         }
 
-        button:disabled {
-            background-color: #666;
-            cursor: not-allowed;
+        #color-picker {
+            display: flex;
+            gap: 15px;
+            margin: 10px 0;
+            justify-content: center;
+            flex-wrap: wrap;
+            color: #fff;
         }
 
-        #theremin-area {
-            width: 100%;
-            height: 400px;
-            background: #2c2c2c;
-            margin: 20px 0;
-            border-radius: 10px;
-            position: relative;
-            overflow: hidden;
-        }
-
-        #keyboard {
-            position: absolute;
-            left: 0;
-            width: 100%;
-            height: 100%;
+        .color-option {
             display: flex;
             flex-direction: column;
-        }
-
-        .key {
-            height: 14.28%;
-            border-bottom: 1px solid #444;
-            display: flex;
             align-items: center;
-            padding-left: 10px;
-            color: #888;
-            font-family: monospace;
-            font-size: 14px;
-            transition: background-color 0.1s;
+            cursor: pointer;
         }
 
-        .key.active {
-            background-color: #4CAF50;
-            color: white;
+        .color-box {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            box-shadow: 0 0 4px rgba(255, 255, 255, 0.5);
         }
 
-        #freq-indicator {
-            position: absolute;
-            right: 0;
-            width: 4px;
-            height: 20px;
-            background-color: #ff0;
-            transition: top 0.1s;
-            border-radius: 2px;
+        #grid {
+            display: grid;
+            grid-template-columns: repeat(8, 40px); /* Increased size */
+            grid-template-rows: repeat(6, 40px); /* Increased size */
+            gap: 5px;
+            max-width: 100vw;
+            margin-bottom: 10px;
+            padding: 10px;
         }
 
-        .status-error { color: #ff4444; }
-        .status-success { color: #44ff44; }
-        .status-info { color: #4444ff; }
+        .peg {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: #111;
+            transition: background-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .peg.active {
+            box-shadow: 0 0 8px 4px var(--color), 0 0 16px 8px var(--color);
+            background-color: var(--color);
+        }
 
         #controls {
             display: flex;
-            justify-content: space-around;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            margin: 10px 0;
+        }
+
+        #tempo-slider {
+            width: 200px;
+        }
+
+        #keyboard {
+            display: flex;
+            gap: 5px;
             margin-top: 20px;
         }
 
-        #note-display {
-            font-size: 2em;
-            font-weight: bold;
-            margin: 10px 0;
-            color: #4CAF50;
+        .key {
+            width: 40px;
+            height: 100px;
+            background-color: #444;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 0.9em;
+            color: #fff;
+            transition: background-color 0.3s ease;
         }
+
+        .key.active {
+            background-color: #888;
+            box-shadow: 0 0 10px 4px rgba(255, 255, 255, 0.7);
+        }
+
     </style>
 </head>
 <body>
-    <div id="container">
-        <h1>Ondes Martenot Web Theremin</h1>
-        
-        <div id="debug-info">
-            Audio Context State: <span id="audio-state">Not initialized</span><br>
-            Browser Audio Support: <span id="browser-support">Checking...</span><br>
-            Current Status: <span id="current-status">Waiting to start</span>
-        </div>
+    <h1>Thanks Lite-Brite</h1>
 
-        <button id="start-button">Start Audio</button>
-        <button id="stop-button" disabled>Stop Audio</button>
-        
-        <div id="note-display">A4 (440 Hz)</div>
-        
-        <div id="theremin-area">
-            <div id="keyboard"></div>
-            <div id="freq-indicator"></div>
+    <div id="color-picker">
+        <div class="color-option" data-color="white">
+            <div class="color-box" style="background-color: white;"></div>
+            <span>Sine Wave</span>
         </div>
-        
-        <div id="controls">
-            <div id="pitch-display">Pitch: 440 Hz</div>
-            <div id="volume-display">Volume: 0%</div>
+        <div class="color-option" data-color="green">
+            <div class="color-box" style="background-color: green;"></div>
+            <span>Triangle Wave</span>
+        </div>
+        <div class="color-option" data-color="red">
+            <div class="color-box" style="background-color: red;"></div>
+            <span>Square Wave</span>
+        </div>
+        <div class="color-option" data-color="blue">
+            <div class="color-box" style="background-color: blue;"></div>
+            <span>Sawtooth Wave</span>
         </div>
     </div>
 
+    <div id="grid"></div>
+
+    <div id="controls">
+        <label for="tempo-slider">Tempo: <span id="tempo-display">120</span> BPM</label>
+        <input type="range" id="tempo-slider" min="60" max="240" value="120">
+    </div>
+
+    <div id="keyboard">
+        <div class="key" data-key="C">C</div>
+        <div class="key" data-key="D">D</div>
+        <div class="key" data-key="E">E</div>
+        <div class="key" data-key="F">F</div>
+        <div class="key" data-key="G">G</div>
+        <div class="key" data-key="A">A</div>
+        <div class="key" data-key="B">B</div>
+    </div>
+
     <script>
-        // Note frequencies for reference
-        const NOTES = {
-            'C8': 4186.01, 'B7': 3951.07, 'A#7': 3729.31, 'A7': 3520.00,
-            'G#7': 3322.44, 'G7': 3135.96, 'F#7': 2959.96, 'F7': 2793.83,
-            'E7': 2637.02, 'D#7': 2489.02, 'D7': 2349.32, 'C#7': 2217.46,
-            'C7': 2093.00, 'B6': 1975.53, 'A#6': 1864.66, 'A6': 1760.00,
-            'G#6': 1661.22, 'G6': 1567.98, 'F#6': 1479.98, 'F6': 1396.91,
-            'E6': 1318.51, 'D#6': 1244.51, 'D6': 1174.66, 'C#6': 1108.73,
-            'C6': 1046.50, 'B5': 987.767, 'A#5': 932.328, 'A5': 880.000,
-            'G#5': 830.609, 'G5': 783.991, 'F#5': 739.989, 'F5': 698.456,
-            'E5': 659.255, 'D#5': 622.254, 'D5': 587.330, 'C#5': 554.365,
-            'C5': 523.251, 'B4': 493.883, 'A#4': 466.164, 'A4': 440.000,
-            'G#4': 415.305, 'G4': 391.995, 'F#4': 369.994, 'F4': 349.228,
-            'E4': 329.628, 'D#4': 311.127, 'D4': 293.665, 'C#4': 277.183,
-            'C4': 261.626
+        // Setup grid, color picker, and keyboard for key selection
+        const grid = document.getElementById("grid");
+        const colorPicker = document.getElementById("color-picker");
+        const tempoSlider = document.getElementById("tempo-slider");
+        const tempoDisplay = document.getElementById("tempo-display");
+        const keyboard = document.getElementById("keyboard");
+
+        let currentColor = "white";
+        let tempo = 120;
+        let stepIndex = 0;
+        let selectedKey = "C";
+
+        // Define frequencies for a base Cmaj6 (C4, E4, G4, A4, C5, E5) and adjust based on key
+        const baseFrequencies = {
+            "C": [261.63, 329.63, 392.00, 440.00, 523.25, 659.25],
+            "D": [293.66, 369.99, 440.00, 493.88, 587.33, 739.99],
+            "E": [329.63, 415.30, 493.88, 523.25, 659.25, 830.61],
+            "F": [349.23, 440.00, 523.25, 587.33, 698.46, 880.00],
+            "G": [392.00, 493.88, 587.33, 659.25, 783.99, 987.77],
+            "A": [440.00, 554.37, 659.25, 739.99, 880.00, 1108.73],
+            "B": [493.88, 622.25, 739.99, 830.61, 987.77, 1244.51]
         };
 
-        // Debug elements
-        const audioStateEl = document.getElementById('audio-state');
-        const browserSupportEl = document.getElementById('browser-support');
-        const currentStatusEl = document.getElementById('current-status');
-        const startButton = document.getElementById('start-button');
-        const stopButton = document.getElementById('stop-button');
-        const thereminArea = document.getElementById('theremin-area');
-        const pitchDisplay = document.getElementById('pitch-display');
-        const volumeDisplay = document.getElementById('volume-display');
-        const noteDisplay = document.getElementById('note-display');
-        const keyboard = document.getElementById('keyboard');
-        const freqIndicator = document.getElementById('freq-indicator');
+        function getFrequencies() {
+            return baseFrequencies[selectedKey];
+        }
 
-        // Create keyboard visualization
-        function createKeyboard() {
-            const notes = Object.entries(NOTES).reverse();
-            notes.forEach(([note, freq]) => {
-                const key = document.createElement('div');
-                key.className = 'key';
-                key.setAttribute('data-note', note);
-                key.setAttribute('data-freq', freq);
-                key.textContent = `${note} - ${freq.toFixed(2)} Hz`;
-                keyboard.appendChild(key);
+        // Map colors to waveforms and volume adjustments
+        const waveforms = {
+            "white": { type: "sine", volume: 0.2 },
+            "green": { type: "triangle", volume: 0.2 },
+            "red": { type: "square", volume: 0.15 },
+            "blue": { type: "sawtooth", volume: 0.2 }
+        };
+
+        // Initialize Web Audio API
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        // Create a grid with pegs
+        const numRows = 6; // 6 notes
+        const numCols = 8; // 8 steps
+        const pegs = [];
+
+        for (let i = 0; i < numRows * numCols; i++) {
+            const peg = document.createElement("div");
+            peg.classList.add("peg");
+            peg.dataset.active = "false";
+            peg.dataset.color = "";
+            peg.addEventListener("click", () => togglePeg(peg));
+            grid.appendChild(peg);
+            pegs.push(peg);
+        }
+
+        // Change current color on color selection
+        colorPicker.addEventListener("click", (event) => {
+            const colorOption = event.target.closest(".color-option");
+            if (colorOption) {
+                currentColor = colorOption.getAttribute("data-color");
+                colorPicker.querySelectorAll('.color-option').forEach(option => {
+                    option.style.outline = '';
+                });
+                colorOption.style.outline = '2px solid #fff';
+            }
+        });
+
+        // Toggle peg on/off with selected color
+        function togglePeg(peg) {
+            if (peg.dataset.active === "true") {
+                peg.dataset.active = "false";
+                peg.style.backgroundColor = "#111";
+                peg.dataset.color = "";
+                peg.classList.remove("active");
+            } else {
+                peg.dataset.active = "true";
+                peg.style.setProperty("--color", currentColor);
+                peg.dataset.color = currentColor;
+                peg.classList.add("active");
+            }
+        }
+
+        // Keyboard key selection
+        keyboard.addEventListener("click", (event) => {
+            const key = event.target.closest(".key");
+            if (key) {
+                selectedKey = key.getAttribute("data-key");
+                keyboard.querySelectorAll('.key').forEach(k => k.classList
+
+.remove('active'));
+                key.classList.add('active');
+            }
+        });
+
+        // Tempo control
+        tempoSlider.addEventListener("input", () => {
+            tempo = parseInt(tempoSlider.value);
+            tempoDisplay.innerText = tempo;
+        });
+
+        // Play loop
+        function playStep() {
+            const frequencies = getFrequencies();
+            const stepPegs = pegs.slice(stepIndex * numRows, (stepIndex + 1) * numRows);
+
+            stepPegs.forEach((peg, rowIndex) => {
+                if (peg.dataset.active === "true") {
+                    const color = peg.dataset.color;
+                    const frequency = frequencies[rowIndex];
+                    const { type, volume } = waveforms[color];
+                    playSound(frequency, type, volume);
+                }
             });
-        }
-        createKeyboard();
 
-        // Find closest note
-        function findClosestNote(frequency) {
-            let closestNote = 'A4';
-            let closestDiff = Infinity;
-            
-            for (const [note, freq] of Object.entries(NOTES)) {
-                const diff = Math.abs(frequency - freq);
-                if (diff < closestDiff) {
-                    closestDiff = diff;
-                    closestNote = note;
-                }
-            }
-            return closestNote;
+            stepIndex = (stepIndex + 1) % numCols;
+            setTimeout(playStep, (60000 / tempo) / 2);
         }
 
-        // Update visual indication
-        function updateVisualNote(frequency) {
-            // Clear previous active keys
-            document.querySelectorAll('.key.active').forEach(key => key.classList.remove('active'));
-            
-            // Find and highlight closest note
-            const note = findClosestNote(frequency);
-            const keyEl = document.querySelector(`.key[data-note="${note}"]`);
-            if (keyEl) {
-                keyEl.classList.add('active');
-                noteDisplay.textContent = `${note} (${frequency.toFixed(1)} Hz)`;
-            }
+        // Play sound
+        function playSound(frequency, waveform, volume) {
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            oscillator.type = waveform;
+            oscillator.frequency.setValueAtTime(frequency, audioCtx.currentTime);
+            gainNode.gain.setValueAtTime(volume, audioCtx.currentTime);
 
-            // Update frequency indicator position
-            const minFreq = Math.log(NOTES['C4']);
-            const maxFreq = Math.log(NOTES['C8']);
-            const logFreq = Math.log(frequency);
-            const position = (logFreq - minFreq) / (maxFreq - minFreq);
-            const top = Math.max(0, Math.min(1, 1 - position)) * (thereminArea.clientHeight - 20);
-            freqIndicator.style.top = `${top}px`;
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            oscillator.start();
+            oscillator.stop(audioCtx.currentTime + 0.2);
         }
 
-        // Audio variables
-        let audioCtx = null;
-        let oscillator = null;
-        let gainNode = null;
-        let isPlaying = false;
-
-        // Check browser support
-        function checkBrowserSupport() {
-            const hasAudioContext = !!(window.AudioContext || window.webkitAudioContext);
-            browserSupportEl.textContent = hasAudioContext ? "Supported" : "Not supported";
-            browserSupportEl.className = hasAudioContext ? "status-success" : "status-error";
-            return hasAudioContext;
-        }
-
-        async function initAudio() {
-            try {
-                currentStatusEl.textContent = "Initializing audio...";
-                
-                if (!checkBrowserSupport()) {
-                    throw new Error("Web Audio API not supported");
-                }
-
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                audioStateEl.textContent = audioCtx.state;
-                
-                await audioCtx.resume();
-                
-                currentStatusEl.textContent = "Audio initialized!";
-                currentStatusEl.className = "status-success";
-                
-                startButton.disabled = true;
-                stopButton.disabled = false;
-                
-                startTheremin();
-                
-                return true;
-            } catch (error) {
-                currentStatusEl.textContent = `Error: ${error.message}`;
-                currentStatusEl.className = "status-error";
-                console.error("Audio initialization error:", error);
-                return false;
-            }
-        }
-
-        function startTheremin() {
-            try {
-                oscillator = audioCtx.createOscillator();
-                gainNode = audioCtx.createGain();
-
-                oscillator.type = 'sine';
-                oscillator.frequency.setValueAtTime(440, audioCtx.currentTime);
-                gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
-
-                oscillator.connect(gainNode);
-                gainNode.connect(audioCtx.destination);
-                oscillator.start();
-                isPlaying = true;
-
-                currentStatusEl.textContent = "Theremin ready! Click/touch the area to play";
-                updateVisualNote(440);
-            } catch (error) {
-                currentStatusEl.textContent = `Error starting theremin: ${error.message}`;
-                currentStatusEl.className = "status-error";
-                console.error("Theremin start error:", error);
-            }
-        }
-
-        function stopTheremin() {
-            try {
-                if (oscillator) {
-                    oscillator.stop();
-                    oscillator.disconnect();
-                }
-                if (gainNode) {
-                    gainNode.disconnect();
-                }
-                isPlaying = false;
-                currentStatusEl.textContent = "Theremin stopped";
-                startButton.disabled = false;
-                stopButton.disabled = true;
-            } catch (error) {
-                console.error("Error stopping theremin:", error);
-            }
-        }
-
-        function updatePitch(yPosition) {
-            if (!isPlaying || !oscillator) return;
-            try {
-                const rect = thereminArea.getBoundingClientRect();
-                const relativeY = yPosition - rect.top;
-                const minFreq = NOTES['C4'];
-                const maxFreq = NOTES['C8'];
-                
-                // Use logarithmic scaling for frequency
-                const logMinFreq = Math.log(minFreq);
-                const logMaxFreq = Math.log(maxFreq);
-                const position = 1 - (relativeY / rect.height);
-                const logFreq = logMinFreq + (position * (logMaxFreq - logMinFreq));
-                const frequency = Math.exp(logFreq);
-                
-                oscillator.frequency.setValueAtTime(frequency, audioCtx.currentTime);
-                pitchDisplay.textContent = `Pitch: ${frequency.toFixed(1)} Hz`;
-                updateVisualNote(frequency);
-            } catch (error) {
-                console.error("Error updating pitch:", error);
-            }
-        }
-
-        function updateVolume(xPosition) {
-            if (!isPlaying || !gainNode) return;
-            try {
-                const rect = thereminArea.getBoundingClientRect();
-                const relativeX = xPosition - rect.left;
-                const volume = Math.max(0, Math.min(1, relativeX / rect.width));
-                gainNode.gain.setValueAtTime(volume, audioCtx.currentTime);
-                volumeDisplay.textContent = `Volume: ${(volume * 100).toFixed(0)}%`;
-            } catch (error) {
-                console.error("Error updating volume:", error);
-            }
-        }
-
-        // Event Listeners
-        startButton.addEventListener('click', initAudio);
-        stopButton.addEventListener('click', stopTheremin);
-
-        thereminArea.addEventListener('mousedown', (e) => {
-            if (audioCtx && audioCtx.state === 'suspended') {
-                audioCtx.resume();
-            }
-            updatePitch(e.clientY);
-            updateVolume(e.clientX);
-        });
-
-        thereminArea.addEventListener('mousemove', (e) => {
-            if (e.buttons > 0) {
-                updatePitch(e.clientY);
-                updateVolume(e.clientX);
-            }
-        });
-
-        thereminArea.addEventListener('mouseup', () => {
-            if (isPlaying && gainNode) {
-                gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
-            }
-        });
-
-        thereminArea.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            if (audioCtx && audioCtx.state === 'suspended') {
-                audioCtx.resume();
-            }
-            const touch = e.touches[0];
-            updatePitch(touch.clientY);
-            updateVolume(touch.clientX);
-        });
-
-        thereminArea.addEventListener('touchmove', (e) => {
-            e.preventDefault();
-            const touch = e.touches[0];
-            updatePitch(touch.clientY);
-            updateVolume(touch.clientX);
-        });
-
-        thereminArea.addEventListener('touchend', () => {
-            if (isPlaying && gainNode) {
-                gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
-            }
-        });
-
-        // Check browser support on load
-        checkBrowserSupport();
+        // Start playback
+        playStep();
     </script>
 </body>
 </html>
