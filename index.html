@@ -59,18 +59,28 @@
 
         // Audio context setup
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const oscillator = audioCtx.createOscillator();
-        const gainNode = audioCtx.createGain();
-
-        oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(440, audioCtx.currentTime); // A4
-        gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime); // 50% volume
-
-        oscillator.connect(gainNode);
-        gainNode.connect(audioCtx.destination);
-        oscillator.start();
+        let oscillator = null;
+        let gainNode = null;
 
         let isPlaying = false;
+
+        // Function to initialize the audio context and oscillator
+        function startTheremin() {
+            if (!isPlaying) {
+                oscillator = audioCtx.createOscillator();
+                gainNode = audioCtx.createGain();
+
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(440, audioCtx.currentTime); // A4
+                gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime); // 50% volume
+
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                oscillator.start();
+
+                isPlaying = true;
+            }
+        }
 
         // Function to update pitch based on vertical touch position
         function updatePitch(yPosition) {
@@ -93,10 +103,10 @@
 
         // Start audio on first touch
         thereminArea.addEventListener('touchstart', (e) => {
-            if (!isPlaying) {
+            if (audioCtx.state === 'suspended') {
                 audioCtx.resume();
-                isPlaying = true;
             }
+            startTheremin();
             const touch = e.touches[0];
             updatePitch(touch.clientY);
             updateVolume(touch.clientX);
@@ -104,14 +114,18 @@
 
         // Update pitch and volume on touch move
         thereminArea.addEventListener('touchmove', (e) => {
-            const touch = e.touches[0];
-            updatePitch(touch.clientY);
-            updateVolume(touch.clientX);
+            if (isPlaying) {
+                const touch = e.touches[0];
+                updatePitch(touch.clientY);
+                updateVolume(touch.clientX);
+            }
         });
 
         // Stop sound on touch end
         thereminArea.addEventListener('touchend', () => {
-            gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+            if (isPlaying) {
+                gainNode.gain.setValueAtTime(0, audioCtx.currentTime); // Mute the volume on touch end
+            }
         });
     </script>
 </body>
