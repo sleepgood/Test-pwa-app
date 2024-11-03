@@ -76,7 +76,7 @@
         }
 
         .peg.active {
-            box-shadow: 0 0 10px 4px var(--color), 0 0 15px 10px var(--color);
+            box-shadow: 0 0 10px 6px var(--color), 0 0 20px 12px var(--color);
         }
 
         #controls {
@@ -148,16 +148,6 @@
         // Initialize Web Audio API
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-        // Reverb setup
-        const reverb = audioCtx.createConvolver();
-        loadReverb();
-
-        async function loadReverb() {
-            const response = await fetch('https://your-reverb-sample-url.wav');
-            const arrayBuffer = await response.arrayBuffer();
-            reverb.buffer = await audioCtx.decodeAudioData(arrayBuffer);
-        }
-
         // Create a grid with pegs
         const numRows = 10; // Expanded to 10 notes
         const numCols = 10; // 10 steps
@@ -222,7 +212,7 @@
             setTimeout(playStep, (60000 / tempo) / 2);
         }
 
-        // Play sound with reverb
+        // Play sound without reverb for testing
         function playSound(frequency, waveform, volume) {
             const oscillator = audioCtx.createOscillator();
             const gainNode = audioCtx.createGain();
@@ -231,8 +221,7 @@
             gainNode.gain.setValueAtTime(volume, audioCtx.currentTime);
 
             oscillator.connect(gainNode);
-            gainNode.connect(reverb);
-            reverb.connect(audioCtx.destination);
+            gainNode.connect(audioCtx.destination);
 
             oscillator.start();
             oscillator.stop(audioCtx.currentTime + 0.2);
