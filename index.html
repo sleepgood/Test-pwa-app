@@ -3,47 +3,95 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reaction Time Light Game</title>
+    <title>Thanks Light Beat Float</title>
     <style>
         body {
             display: flex;
-            flex-direction: column;
-            align-items: center;
             justify-content: center;
+            align-items: center;
             height: 100vh;
             margin: 0;
+            background-color: skyblue;
+            overflow: hidden;
             font-family: Arial, sans-serif;
-            background-color: black;
-            color: white;
-            text-align: center;
-            transition: background-color 0.3s ease;
         }
-        #reactionTime {
-            font-size: 2em;
-            margin: 20px;
-        }
-        #startButton {
-            padding: 10px 20px;
-            font-size: 1.5em;
-            margin-top: 20px;
-            cursor: pointer;
+        #gameCanvas {
+            border: 2px solid black;
+            background-color: #87CEEB;
         }
     </style>
 </head>
 <body>
-    <h1>Reaction Time Game</h1>
-    <div id="reactionTime">Press Start to begin!</div>
-    <button id="startButton">Start</button>
+    <canvas id="gameCanvas" width="400" height="600"></canvas>
 
     <script>
-        let startButton = document.getElementById('startButton');
-        let reactionTimeDisplay = document.getElementById('reactionTime');
-        let startTime;
-        let lightOn = false;
-        let gameActive = false;
-        let reactionTimeout;
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
 
-        async function listenForSound() {
+        let gameOver = false;
+        let birdY = canvas.height / 2;
+        let birdVelocity = 0;
+        let gravity = 0.4;
+        let soundBoost = -5; // Sound keeps the bird in the middle
+        let obstacles = [];
+        let obstacleWidth = 50;
+        let obstacleGap = 150;
+        let frameCount = 0;
+
+        // Game loop and obstacle drawing
+        function gameLoop() {
+            if (gameOver) return;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw "Thanks Light" as the "bird"
+            ctx.font = "30px Arial";
+            ctx.fillStyle = "white";
+            ctx.fillText("Thanks Light", 100, birdY);
+
+            // Apply gravity and velocity to bird's Y position
+            birdVelocity += gravity;
+            birdY += birdVelocity;
+
+            // Draw and move obstacles
+            if (frameCount % 90 === 0) {
+                const gapPosition = Math.floor(Math.random() * (canvas.height - obstacleGap));
+                obstacles.push({ x: canvas.width, y: gapPosition });
+            }
+
+            obstacles.forEach((obstacle, index) => {
+                obstacle.x -= 2; // Move obstacle leftward
+
+                // Top obstacle
+                ctx.fillStyle = "green";
+                ctx.fillRect(obstacle.x, 0, obstacleWidth, obstacle.y);
+
+                // Bottom obstacle
+                ctx.fillRect(obstacle.x, obstacle.y + obstacleGap, obstacleWidth, canvas.height - obstacle.y - obstacleGap);
+
+                // Collision detection
+                if (obstacle.x < 150 && obstacle.x + obstacleWidth > 100) {
+                    if (birdY < obstacle.y || birdY > obstacle.y + obstacleGap) {
+                        gameOver = true;
+                        alert("Game Over! Try keeping a steady beat!");
+                    }
+                }
+
+                // Remove obstacles that are off-screen
+                if (obstacle.x + obstacleWidth < 0) obstacles.splice(index, 1);
+            });
+
+            // Boundary check
+            if (birdY > canvas.height || birdY < 0) {
+                gameOver = true;
+                alert("Game Over! Try keeping a steady beat!");
+            }
+
+            frameCount++;
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Microphone beat detection
+        async function startListening() {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 const audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -54,61 +102,25 @@
 
                 const dataArray = new Uint8Array(analyser.frequencyBinCount);
 
-                function detectSound() {
-                    if (!gameActive || !lightOn) {
-                        requestAnimationFrame(detectSound);
-                        return;
-                    }
-
+                function detectBeat() {
                     analyser.getByteFrequencyData(dataArray);
                     const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
 
-                    if (average > 50) { // Sound threshold for detecting a clap/snap
-                        const reactionTime = Date.now() - startTime;
-                        endGame(reactionTime);
-                    } else {
-                        requestAnimationFrame(detectSound);
+                    if (average > 50) { // Detect sound above a threshold
+                        birdVelocity = soundBoost; // Apply boost to counteract gravity
                     }
+                    requestAnimationFrame(detectBeat);
                 }
 
-                detectSound();
+                detectBeat();
             } catch (error) {
                 console.error("Microphone access error:", error);
             }
         }
 
-        function startGame() {
-            gameActive = true;
-            reactionTimeDisplay.textContent = "Get ready...";
-            startButton.style.display = "none";
-            lightOn = false;
-
-            // Set a random delay before the light flashes
-            const randomDelay = Math.floor(Math.random() * 3000) + 1000;
-
-            reactionTimeout = setTimeout(() => {
-                reactionTimeDisplay.textContent = "React!";
-                document.body.style.backgroundColor = "red"; // Flash color
-                lightOn = true;
-                startTime = Date.now(); // Record start time
-            }, randomDelay);
-        }
-
-        function endGame(reactionTime) {
-            gameActive = false;
-            lightOn = false;
-            clearTimeout(reactionTimeout);
-            document.body.style.backgroundColor = "black";
-            reactionTimeDisplay.textContent = `Reaction Time: ${reactionTime} ms`;
-            startButton.style.display = "block";
-            startButton.textContent = "Play Again";
-        }
-
-        // Event listeners
-        startButton.addEventListener('click', startGame);
-
-        // Start listening for sound on load
-        listenForSound();
+        // Start the game loop and microphone listening
+        gameLoop();
+        startListening();
     </script>
 </body>
 </html>
