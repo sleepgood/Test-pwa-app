@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web Theremin</title>
+    <title>Ondes Martenot Web Theremin</title>
     <style>
         body, html {
             margin: 0;
@@ -19,7 +19,7 @@
         
         #container {
             width: 100%;
-            max-width: 800px;
+            max-width: 1000px;
             padding: 20px;
             text-align: center;
         }
@@ -51,24 +51,71 @@
 
         #theremin-area {
             width: 100%;
-            height: 300px;
-            background: linear-gradient(90deg, #444, #888);
+            height: 400px;
+            background: #2c2c2c;
             margin: 20px 0;
             border-radius: 10px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #keyboard {
+            position: absolute;
+            left: 0;
+            width: 100%;
+            height: 100%;
             display: flex;
-            justify-content: center;
+            flex-direction: column;
+        }
+
+        .key {
+            height: 14.28%;
+            border-bottom: 1px solid #444;
+            display: flex;
             align-items: center;
-            cursor: pointer;
+            padding-left: 10px;
+            color: #888;
+            font-family: monospace;
+            font-size: 14px;
+            transition: background-color 0.1s;
+        }
+
+        .key.active {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        #freq-indicator {
+            position: absolute;
+            right: 0;
+            width: 4px;
+            height: 20px;
+            background-color: #ff0;
+            transition: top 0.1s;
+            border-radius: 2px;
         }
 
         .status-error { color: #ff4444; }
         .status-success { color: #44ff44; }
         .status-info { color: #4444ff; }
+
+        #controls {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 20px;
+        }
+
+        #note-display {
+            font-size: 2em;
+            font-weight: bold;
+            margin: 10px 0;
+            color: #4CAF50;
+        }
     </style>
 </head>
 <body>
     <div id="container">
-        <h1>Web Theremin</h1>
+        <h1>Ondes Martenot Web Theremin</h1>
         
         <div id="debug-info">
             Audio Context State: <span id="audio-state">Not initialized</span><br>
@@ -79,8 +126,11 @@
         <button id="start-button">Start Audio</button>
         <button id="stop-button" disabled>Stop Audio</button>
         
+        <div id="note-display">A4 (440 Hz)</div>
+        
         <div id="theremin-area">
-            <div id="touch-info">Click/touch here to play</div>
+            <div id="keyboard"></div>
+            <div id="freq-indicator"></div>
         </div>
         
         <div id="controls">
@@ -90,6 +140,23 @@
     </div>
 
     <script>
+        // Note frequencies for reference
+        const NOTES = {
+            'C8': 4186.01, 'B7': 3951.07, 'A#7': 3729.31, 'A7': 3520.00,
+            'G#7': 3322.44, 'G7': 3135.96, 'F#7': 2959.96, 'F7': 2793.83,
+            'E7': 2637.02, 'D#7': 2489.02, 'D7': 2349.32, 'C#7': 2217.46,
+            'C7': 2093.00, 'B6': 1975.53, 'A#6': 1864.66, 'A6': 1760.00,
+            'G#6': 1661.22, 'G6': 1567.98, 'F#6': 1479.98, 'F6': 1396.91,
+            'E6': 1318.51, 'D#6': 1244.51, 'D6': 1174.66, 'C#6': 1108.73,
+            'C6': 1046.50, 'B5': 987.767, 'A#5': 932.328, 'A5': 880.000,
+            'G#5': 830.609, 'G5': 783.991, 'F#5': 739.989, 'F5': 698.456,
+            'E5': 659.255, 'D#5': 622.254, 'D5': 587.330, 'C#5': 554.365,
+            'C5': 523.251, 'B4': 493.883, 'A#4': 466.164, 'A4': 440.000,
+            'G#4': 415.305, 'G4': 391.995, 'F#4': 369.994, 'F4': 349.228,
+            'E4': 329.628, 'D#4': 311.127, 'D4': 293.665, 'C#4': 277.183,
+            'C4': 261.626
+        };
+
         // Debug elements
         const audioStateEl = document.getElementById('audio-state');
         const browserSupportEl = document.getElementById('browser-support');
@@ -99,7 +166,60 @@
         const thereminArea = document.getElementById('theremin-area');
         const pitchDisplay = document.getElementById('pitch-display');
         const volumeDisplay = document.getElementById('volume-display');
-        const touchInfo = document.getElementById('touch-info');
+        const noteDisplay = document.getElementById('note-display');
+        const keyboard = document.getElementById('keyboard');
+        const freqIndicator = document.getElementById('freq-indicator');
+
+        // Create keyboard visualization
+        function createKeyboard() {
+            const notes = Object.entries(NOTES).reverse();
+            notes.forEach(([note, freq]) => {
+                const key = document.createElement('div');
+                key.className = 'key';
+                key.setAttribute('data-note', note);
+                key.setAttribute('data-freq', freq);
+                key.textContent = `${note} - ${freq.toFixed(2)} Hz`;
+                keyboard.appendChild(key);
+            });
+        }
+        createKeyboard();
+
+        // Find closest note
+        function findClosestNote(frequency) {
+            let closestNote = 'A4';
+            let closestDiff = Infinity;
+            
+            for (const [note, freq] of Object.entries(NOTES)) {
+                const diff = Math.abs(frequency - freq);
+                if (diff < closestDiff) {
+                    closestDiff = diff;
+                    closestNote = note;
+                }
+            }
+            return closestNote;
+        }
+
+        // Update visual indication
+        function updateVisualNote(frequency) {
+            // Clear previous active keys
+            document.querySelectorAll('.key.active').forEach(key => key.classList.remove('active'));
+            
+            // Find and highlight closest note
+            const note = findClosestNote(frequency);
+            const keyEl = document.querySelector(`.key[data-note="${note}"]`);
+            if (keyEl) {
+                keyEl.classList.add('active');
+                noteDisplay.textContent = `${note} (${frequency.toFixed(1)} Hz)`;
+            }
+
+            // Update frequency indicator position
+            const minFreq = Math.log(NOTES['C4']);
+            const maxFreq = Math.log(NOTES['C8']);
+            const logFreq = Math.log(frequency);
+            const position = (logFreq - minFreq) / (maxFreq - minFreq);
+            const top = Math.max(0, Math.min(1, 1 - position)) * (thereminArea.clientHeight - 20);
+            freqIndicator.style.top = `${top}px`;
+        }
 
         // Audio variables
         let audioCtx = null;
@@ -115,7 +235,6 @@
             return hasAudioContext;
         }
 
-        // Initialize audio
         async function initAudio() {
             try {
                 currentStatusEl.textContent = "Initializing audio...";
@@ -161,7 +280,7 @@
                 isPlaying = true;
 
                 currentStatusEl.textContent = "Theremin ready! Click/touch the area to play";
-                touchInfo.textContent = "Click/touch and move to play";
+                updateVisualNote(440);
             } catch (error) {
                 currentStatusEl.textContent = `Error starting theremin: ${error.message}`;
                 currentStatusEl.className = "status-error";
@@ -192,13 +311,19 @@
             try {
                 const rect = thereminArea.getBoundingClientRect();
                 const relativeY = yPosition - rect.top;
-                const maxFrequency = 1000;
-                const minFrequency = 100;
-                const pitchRange = maxFrequency - minFrequency;
+                const minFreq = NOTES['C4'];
+                const maxFreq = NOTES['C8'];
                 
-                const frequency = maxFrequency - ((relativeY / rect.height) * pitchRange);
-                oscillator.frequency.setValueAtTime(Math.max(minFrequency, Math.min(maxFrequency, frequency)), audioCtx.currentTime);
+                // Use logarithmic scaling for frequency
+                const logMinFreq = Math.log(minFreq);
+                const logMaxFreq = Math.log(maxFreq);
+                const position = 1 - (relativeY / rect.height);
+                const logFreq = logMinFreq + (position * (logMaxFreq - logMinFreq));
+                const frequency = Math.exp(logFreq);
+                
+                oscillator.frequency.setValueAtTime(frequency, audioCtx.currentTime);
                 pitchDisplay.textContent = `Pitch: ${frequency.toFixed(1)} Hz`;
+                updateVisualNote(frequency);
             } catch (error) {
                 console.error("Error updating pitch:", error);
             }
