@@ -3,71 +3,89 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sound-Based Color Changer</title>
-    <link rel="manifest" href="./manifest.json">
+    <title>Light Sequencer</title>
     <style>
         body {
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
             height: 100vh;
             margin: 0;
             font-family: Arial, sans-serif;
+            background-color: black;
             color: white;
             text-align: center;
-            background-color: black;
         }
-        #message {
-            font-size: 1.5em;
+        .controls, .sequence {
+            margin: 10px;
+        }
+        .sequence input[type="range"] {
+            width: 50px;
+        }
+        .step {
+            display: inline-block;
+            margin: 0 5px;
         }
     </style>
 </head>
 <body>
-    <div id="message">Allow microphone access and make some noise!</div>
+    <h1>Light Sequencer</h1>
+    <div class="controls">
+        <label>BPM: <input type="number" id="bpm" value="120" min="20" max="300"></label>
+    </div>
+    <div class="sequence">
+        <div class="step" v-for="step in steps">
+            <label>Step 1</label><br>
+            <input type="range" class="brightness" value="0" min="0" max="255">
+        </div>
+    </div>
+    <div id="message">Adjust the BPM and brightness of each step in real-time!</div>
 
     <script>
-        const message = document.getElementById('message');
+        const steps = 8;
+        const brightnessLevels = new Array(steps).fill(0); // Initialize brightness levels for each step
+        let bpm = 120; // Default BPM
+        let currentStep = 0;
+        let intervalId;
 
-        // Function to start listening to the microphone
-        async function startAudioProcessing() {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                message.innerText = "Microphone access granted. Make some noise!";
-                
-                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                const analyser = audioContext.createAnalyser();
-                const microphone = audioContext.createMediaStreamSource(stream);
-                microphone.connect(analyser);
-                analyser.fftSize = 256;
+        // Set up DOM references
+        const bpmInput = document.getElementById('bpm');
+        const brightnessInputs = document.querySelectorAll('.brightness');
 
-                const dataArray = new Uint8Array(analyser.frequencyBinCount);
+        // Update brightnessLevels array when brightness sliders are changed
+        brightnessInputs.forEach((input, index) => {
+            input.addEventListener('input', (event) => {
+                brightnessLevels[index] = parseInt(event.target.value);
+            });
+        });
 
-                function changeColor() {
-                    analyser.getByteFrequencyData(dataArray);
-                    let values = 0;
-                    for (let i = 0; i < dataArray.length; i++) {
-                        values += dataArray[i];
-                    }
+        // Function to update BPM
+        bpmInput.addEventListener('input', () => {
+            bpm = parseInt(bpmInput.value);
+            startSequencer(); // Restart the sequencer with the new BPM
+        });
 
-                    const average = values / dataArray.length;
-                    const red = Math.min(255, Math.floor(average * 2));
-                    const green = 255 - red;
-                    const blue = 128;
-
-                    document.body.style.backgroundColor = `rgb(${red}, ${green}, ${blue})`;
-                    message.innerText = `Sound level: ${Math.floor(average)}`;
-                    requestAnimationFrame(changeColor);
-                }
-
-                changeColor();
-            } catch (error) {
-                message.innerText = "Microphone access denied or not supported.";
-                console.error("Microphone access error:", error);
-            }
+        // Function to flash the screen with the specified brightness
+        function flashScreen(brightness) {
+            document.body.style.backgroundColor = `rgb(${brightness}, ${brightness}, ${brightness})`;
         }
 
-        // Start audio processing
-        startAudioProcessing();
+        // Sequencer function
+        function sequencer() {
+            flashScreen(brightnessLevels[currentStep]); // Flash with the current step's brightness
+            currentStep = (currentStep + 1) % steps; // Move to the next step
+        }
+
+        // Start the sequencer with the specified BPM
+        function startSequencer() {
+            if (intervalId) clearInterval(intervalId); // Clear any existing interval
+            const interval = (60 / bpm) * 1000 / 2; // Calculate interval based on BPM (halved for visual flash)
+            intervalId = setInterval(sequencer, interval);
+        }
+
+        // Initialize the sequencer
+        startSequencer();
     </script>
 </body>
 </html>
