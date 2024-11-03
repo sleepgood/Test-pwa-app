@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Musical Lite-Brite Sequencer</title>
+    <title>Thanks Lite-Brite</title>
     <style>
         body, html {
             margin: 0;
@@ -24,25 +24,36 @@
             text-shadow: 0 0 12px #fff, 0 0 24px #fff;
         }
 
+        #sound-indicator {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 1em;
+            color: #fff;
+            opacity: 0.7;
+        }
+
         #color-picker {
             display: flex;
-            gap: 5px;
+            gap: 15px;
             margin: 10px 0;
             justify-content: center;
             flex-wrap: wrap;
+            color: #fff;
         }
 
         .color-option {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .color-box {
             width: 24px;
             height: 24px;
             border-radius: 50%;
-            cursor: pointer;
-            transition: transform 0.2s ease;
             box-shadow: 0 0 4px rgba(255, 255, 255, 0.5);
-        }
-
-        .color-option:hover {
-            transform: scale(1.2);
         }
 
         #grid {
@@ -82,13 +93,26 @@
     </style>
 </head>
 <body>
-    <h1>Musical Lite-Brite Sequencer</h1>
+    <h1>Thanks Lite-Brite</h1>
+    <div id="sound-indicator">Sound On</div>
 
     <div id="color-picker">
-        <div class="color-option" style="background-color: white;" data-color="white"></div>
-        <div class="color-option" style="background-color: green;" data-color="green"></div>
-        <div class="color-option" style="background-color: red;" data-color="red"></div>
-        <div class="color-option" style="background-color: blue;" data-color="blue"></div>
+        <div class="color-option" data-color="white">
+            <div class="color-box" style="background-color: white;"></div>
+            <span>Sine Wave</span>
+        </div>
+        <div class="color-option" data-color="green">
+            <div class="color-box" style="background-color: green;"></div>
+            <span>Triangle Wave</span>
+        </div>
+        <div class="color-option" data-color="red">
+            <div class="color-box" style="background-color: red;"></div>
+            <span>Square Wave</span>
+        </div>
+        <div class="color-option" data-color="blue">
+            <div class="color-box" style="background-color: blue;"></div>
+            <span>Sawtooth Wave</span>
+        </div>
     </div>
 
     <div id="grid"></div>
@@ -112,12 +136,12 @@
         // Define frequencies for Cmaj6 (C4, E4, G4, A4, C5, E5)
         const frequencies = [261.63, 329.63, 392.00, 440.00, 523.25, 659.25];
 
-        // Map colors to waveforms
+        // Map colors to waveforms and volume adjustments
         const waveforms = {
-            "white": "sine",
-            "green": "triangle",
-            "red": "square",
-            "blue": "sawtooth"
+            "white": { type: "sine", volume: 0.2 },
+            "green": { type: "triangle", volume: 0.2 },
+            "red": { type: "square", volume: 0.1 }, // Reduced volume for square wave
+            "blue": { type: "sawtooth", volume: 0.2 }
         };
 
         // Initialize Web Audio API
@@ -140,12 +164,13 @@
 
         // Change current color on color selection
         colorPicker.addEventListener("click", (event) => {
-            if (event.target.classList.contains("color-option")) {
-                currentColor = event.target.getAttribute("data-color");
+            const colorOption = event.target.closest(".color-option");
+            if (colorOption) {
+                currentColor = colorOption.getAttribute("data-color");
                 colorPicker.querySelectorAll('.color-option').forEach(option => {
                     option.style.outline = '';
                 });
-                event.target.style.outline = '2px solid #fff';
+                colorOption.style.outline = '2px solid #fff';
             }
         });
 
@@ -158,6 +183,7 @@
             } else {
                 peg.dataset.active = "true";
                 peg.style.backgroundColor = currentColor;
+                peg.style.setProperty("--color", currentColor);
                 peg.dataset.color = currentColor;
             }
         }
@@ -176,8 +202,8 @@
                 if (peg.dataset.active === "true") {
                     const color = peg.dataset.color;
                     const frequency = frequencies[rowIndex];
-                    const waveform = waveforms[color];
-                    playSound(frequency, waveform);
+                    const { type, volume } = waveforms[color];
+                    playSound(frequency, type, volume);
                 }
             });
 
@@ -186,12 +212,12 @@
         }
 
         // Play sound
-        function playSound(frequency, waveform) {
+        function playSound(frequency, waveform, volume) {
             const oscillator = audioCtx.createOscillator();
             const gainNode = audioCtx.createGain();
             oscillator.type = waveform;
             oscillator.frequency.setValueAtTime(frequency, audioCtx.currentTime);
-            gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            gainNode.gain.setValueAtTime(volume, audioCtx.currentTime);
 
             oscillator.connect(gainNode);
             gainNode.connect(audioCtx.destination);
