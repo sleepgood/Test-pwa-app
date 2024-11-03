@@ -3,18 +3,57 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Test PWA App</title>
+    <title>Motion Color Changer</title>
     <link rel="manifest" href="./manifest.json">
+    <style>
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            font-family: Arial, sans-serif;
+            color: white;
+            text-align: center;
+        }
+        #message {
+            font-size: 1.5em;
+        }
+    </style>
 </head>
 <body>
-    <h1>Hello, World!</h1>
-    <p>This is a test PWA app hosted on GitHub Pages.</p>
+    <div id="message">Tilt your phone to change the background color!</div>
+    
     <script>
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('./sw.js')
-        .then(() => console.log('Service Worker Registered'))
-        .catch(error => console.log('Service Worker Registration failed:', error));
-    }
+        // Request permission for motion data (necessary on iOS 13+)
+        if (typeof DeviceMotionEvent.requestPermission === 'function') {
+            DeviceMotionEvent.requestPermission()
+                .then(permissionState => {
+                    if (permissionState === 'granted') {
+                        window.addEventListener('devicemotion', handleMotion);
+                    } else {
+                        document.getElementById('message').innerText = "Permission for motion data was denied.";
+                    }
+                })
+                .catch(console.error);
+        } else {
+            window.addEventListener('devicemotion', handleMotion);
+        }
+
+        function handleMotion(event) {
+            // Get the acceleration along the x, y, and z axes
+            const x = event.accelerationIncludingGravity.x || 0;
+            const y = event.accelerationIncludingGravity.y || 0;
+            const z = event.accelerationIncludingGravity.z || 0;
+
+            // Map the acceleration values to RGB color values
+            const red = Math.min(255, Math.abs(Math.floor(x * 20)));
+            const green = Math.min(255, Math.abs(Math.floor(y * 20)));
+            const blue = Math.min(255, Math.abs(Math.floor(z * 20)));
+
+            // Set the background color based on the accelerometer data
+            document.body.style.backgroundColor = `rgb(${red}, ${green}, ${blue})`;
+        }
     </script>
 </body>
 </html>
