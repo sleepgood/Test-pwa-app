@@ -3,103 +3,140 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Visual Echo Effect</title>
+    <title>Lite-Brite</title>
     <style>
         body, html {
             margin: 0;
             padding: 0;
-            overflow: hidden;
-            background-color: black;
             display: flex;
-            justify-content: center;
+            flex-direction: column;
             align-items: center;
-            height: 100vh;
-        }
-        #echoContainer {
-            position: relative;
-            width: 100vw;
+            background-color: #333;
+            color: #fff;
+            font-family: Arial, sans-serif;
             height: 100vh;
             overflow: hidden;
         }
-        .echo-frame {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            opacity: 0.1;
-            transition: opacity 0.2s ease, transform 0.2s ease;
+
+        h1 {
+            margin: 20px;
+        }
+
+        #grid {
+            display: grid;
+            grid-template-columns: repeat(16, 30px); /* 16x16 grid */
+            gap: 5px;
+            margin-bottom: 20px;
+        }
+
+        .peg {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background-color: #111;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+            transition: background-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .peg.active {
+            box-shadow: 0 0 15px 5px var(--color), 0 0 30px 15px var(--color);
+        }
+
+        #color-picker {
+            display: flex;
+            gap: 10px;
+            margin: 10px 0;
+        }
+
+        .color-option {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+
+        .color-option:hover {
+            transform: scale(1.2);
+        }
+
+        #clear-button {
+            padding: 10px 20px;
+            background-color: #444;
+            border: none;
+            border-radius: 5px;
+            color: #fff;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+
+        #clear-button:hover {
+            background-color: #666;
         }
     </style>
 </head>
 <body>
-    <div id="echoContainer"></div>
+    <h1>Lite-Brite</h1>
+    <div id="grid"></div>
+    <div id="color-picker">
+        <div class="color-option" style="background-color: red;" data-color="red"></div>
+        <div class="color-option" style="background-color: orange;" data-color="orange"></div>
+        <div class="color-option" style="background-color: yellow;" data-color="yellow"></div>
+        <div class="color-option" style="background-color: green;" data-color="green"></div>
+        <div class="color-option" style="background-color: blue;" data-color="blue"></div>
+        <div class="color-option" style="background-color: purple;" data-color="purple"></div>
+        <div class="color-option" style="background-color: pink;" data-color="pink"></div>
+        <div class="color-option" style="background-color: white;" data-color="white"></div>
+    </div>
+    <button id="clear-button">Clear All</button>
 
     <script>
-        const echoContainer = document.getElementById('echoContainer');
-        const maxEchoFrames = 10; // Number of frames to echo
-        const echoFrames = [];
+        const grid = document.getElementById("grid");
+        const colorPicker = document.getElementById("color-picker");
+        const clearButton = document.getElementById("clear-button");
+        let currentColor = "white";
 
-        async function startCamera() {
-            try {
-                // Access the camera
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: 'environment' }
-                });
-                
-                // Create video element to capture live feed
-                const video = document.createElement('video');
-                video.srcObject = stream;
-                video.autoplay = true;
-                video.playsinline = true;
+        // Initialize the grid
+        for (let i = 0; i < 16 * 16; i++) { // 16x16 grid
+            const peg = document.createElement("div");
+            peg.classList.add("peg");
+            peg.addEventListener("click", () => togglePeg(peg));
+            grid.appendChild(peg);
+        }
 
-                // Wait until the video is ready to play
-                video.addEventListener('loadeddata', () => {
-                    video.play();
-                    createEchoFrames(video); // Start echo effect when video is ready
+        // Change current color on color selection
+        colorPicker.addEventListener("click", (event) => {
+            if (event.target.classList.contains("color-option")) {
+                currentColor = event.target.getAttribute("data-color");
+                colorPicker.querySelectorAll('.color-option').forEach(option => {
+                    option.style.outline = '';
                 });
-            } catch (error) {
-                console.error("Camera access error:", error);
-                alert("Camera access is required to run this AR experience.");
+                event.target.style.outline = '2px solid #fff';
+            }
+        });
+
+        // Toggle peg on/off with selected color
+        function togglePeg(peg) {
+            if (peg.classList.contains("active")) {
+                peg.classList.remove("active");
+                peg.style.backgroundColor = "#111";
+                peg.style.setProperty("--color", "transparent");
+            } else {
+                peg.classList.add("active");
+                peg.style.backgroundColor = currentColor;
+                peg.style.setProperty("--color", currentColor);
             }
         }
 
-        function createEchoFrames(video) {
-            // Create echo frames and add them to the container
-            for (let i = 0; i < maxEchoFrames; i++) {
-                const canvas = document.createElement('canvas');
-                canvas.className = 'echo-frame';
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                echoContainer.appendChild(canvas);
-                echoFrames.push(canvas);
-            }
-
-            // Update frames continuously
-            function updateEcho() {
-                // Ensure the video feed is still running
-                if (video.readyState === video.HAVE_ENOUGH_DATA) {
-                    // Draw the current video frame to each echo frame with fading and scaling
-                    echoFrames.forEach((canvas, index) => {
-                        const ctx = canvas.getContext('2d');
-                        ctx.clearRect(0, 0, canvas.width, canvas.height);
-                        ctx.globalAlpha = (index + 1) / maxEchoFrames; // Fading effect
-                        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-                        // Scale and slightly move each frame for the trailing effect
-                        const scale = 1 + index * 0.02; // Adjust scale increment as desired
-                        canvas.style.transform = `scale(${scale}) translate(${index * 2}px, ${index * 2}px)`;
-                    });
-                }
-
-                requestAnimationFrame(updateEcho);
-            }
-
-            updateEcho();
-        }
-
-        // Start the camera feed and visual echo effect
-        startCamera();
+        // Clear all pegs
+        clearButton.addEventListener("click", () => {
+            document.querySelectorAll(".peg").forEach(peg => {
+                peg.classList.remove("active");
+                peg.style.backgroundColor = "#111";
+                peg.style.setProperty("--color", "transparent");
+            });
+        });
     </script>
 </body>
 </html>
