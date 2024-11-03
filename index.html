@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lite-Brite</title>
+    <title>Thanks Lite-Brite</title>
     <style>
         body, html {
             margin: 0;
@@ -20,22 +20,26 @@
 
         h1 {
             margin: 20px;
+            font-size: 2em;
+            text-align: center;
+            text-shadow: 0 0 10px #fff, 0 0 20px #fff;
         }
 
         #grid {
             display: grid;
-            grid-template-columns: repeat(16, 30px); /* 16x16 grid */
-            gap: 5px;
+            grid-template-columns: repeat(20, 25px); /* Larger grid */
+            gap: 4px;
             margin-bottom: 20px;
         }
 
         .peg {
-            width: 30px;
-            height: 30px;
+            width: 25px;
+            height: 25px;
             border-radius: 50%;
             background-color: #111;
             box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
             transition: background-color 0.3s ease, box-shadow 0.3s ease;
+            animation: twinkle 2s infinite alternate ease-in-out;
         }
 
         .peg.active {
@@ -60,7 +64,7 @@
             transform: scale(1.2);
         }
 
-        #clear-button {
+        #clear-button, #save-button {
             padding: 10px 20px;
             background-color: #444;
             border: none;
@@ -68,16 +72,23 @@
             color: #fff;
             cursor: pointer;
             font-size: 16px;
+            margin: 5px;
             transition: background-color 0.3s;
         }
 
-        #clear-button:hover {
+        #clear-button:hover, #save-button:hover {
             background-color: #666;
+        }
+
+        /* Twinkle animation */
+        @keyframes twinkle {
+            0% { opacity: 0.8; }
+            100% { opacity: 1; }
         }
     </style>
 </head>
 <body>
-    <h1>Lite-Brite</h1>
+    <h1>Thanks Lite-Brite</h1>
     <div id="grid"></div>
     <div id="color-picker">
         <div class="color-option" style="background-color: red;" data-color="red"></div>
@@ -90,15 +101,17 @@
         <div class="color-option" style="background-color: white;" data-color="white"></div>
     </div>
     <button id="clear-button">Clear All</button>
+    <button id="save-button">Save Image</button>
 
     <script>
         const grid = document.getElementById("grid");
         const colorPicker = document.getElementById("color-picker");
         const clearButton = document.getElementById("clear-button");
+        const saveButton = document.getElementById("save-button");
         let currentColor = "white";
 
         // Initialize the grid
-        for (let i = 0; i < 16 * 16; i++) { // 16x16 grid
+        for (let i = 0; i < 20 * 20; i++) { // 20x20 grid
             const peg = document.createElement("div");
             peg.classList.add("peg");
             peg.addEventListener("click", () => togglePeg(peg));
@@ -137,6 +150,19 @@
                 peg.style.setProperty("--color", "transparent");
             });
         });
+
+        // Save grid as image
+        saveButton.addEventListener("click", () => {
+            html2canvas(document.querySelector("#grid")).then(canvas => {
+                const link = document.createElement('a');
+                link.download = 'lite-brite.png';
+                link.href = canvas.toDataURL();
+                link.click();
+            });
+        });
+
     </script>
+    <!-- Include html2canvas library to capture screenshot -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </body>
 </html>
