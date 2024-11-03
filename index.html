@@ -3,143 +3,65 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Thanks Light Beat Float</title>
+    <title>Basic AR Overlay</title>
     <style>
-        body {
+        body, html {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
-            margin: 0;
-            background-color: skyblue;
-            overflow: hidden;
-            font-family: Arial, sans-serif;
+            background-color: #000;
         }
-        #gameCanvas {
-            border: 2px solid black;
-            background-color: #87CEEB;
+        #camera-feed {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            object-fit: cover;
+            transform: scaleX(-1); /* Mirror the camera feed */
+        }
+        #overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: limegreen;
+            font-size: 2em;
+            font-weight: bold;
+            text-shadow: 2px 2px 10px rgba(0, 0, 0, 0.8);
         }
     </style>
 </head>
 <body>
-    <canvas id="gameCanvas" width="400" height="600"></canvas>
+    <!-- Camera Feed -->
+    <video id="camera-feed" autoplay playsinline></video>
+    
+    <!-- Overlay Text or Object -->
+    <div id="overlay">Thanks Light</div>
 
     <script>
-        const canvas = document.getElementById("gameCanvas");
-        const ctx = canvas.getContext("2d");
-
-        let gameOver = false;
-        let birdY = canvas.height / 2;
-        let birdVelocity = 0;
-        let gravity = 0.4;
-        let obstacles = [];
-        let obstacleWidth = 50;
-        let obstacleGap = 150;
-        let frameCount = 0;
-
-        // Timing variables
-        let lastBeatTime = null;
-        const targetInterval = 600; // Target interval in milliseconds (100 BPM as an example)
-        const tolerance = 100; // Allowable deviation from target interval
-
-        function gameLoop() {
-            if (gameOver) return;
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            // Draw "Thanks Light" as the "bird"
-            ctx.font = "30px Arial";
-            ctx.fillStyle = "white";
-            ctx.fillText("Thanks Light", 100, birdY);
-
-            // Apply gravity and velocity to bird's Y position
-            birdVelocity += gravity;
-            birdY += birdVelocity;
-
-            // Draw and move obstacles
-            if (frameCount % 90 === 0) {
-                const gapPosition = Math.floor(Math.random() * (canvas.height - obstacleGap));
-                obstacles.push({ x: canvas.width, y: gapPosition });
-            }
-
-            obstacles.forEach((obstacle, index) => {
-                obstacle.x -= 2; // Move obstacle leftward
-
-                // Top obstacle
-                ctx.fillStyle = "green";
-                ctx.fillRect(obstacle.x, 0, obstacleWidth, obstacle.y);
-
-                // Bottom obstacle
-                ctx.fillRect(obstacle.x, obstacle.y + obstacleGap, obstacleWidth, canvas.height - obstacle.y - obstacleGap);
-
-                // Collision detection
-                if (obstacle.x < 150 && obstacle.x + obstacleWidth > 100) {
-                    if (birdY < obstacle.y || birdY > obstacle.y + obstacleGap) {
-                        gameOver = true;
-                        alert("Game Over! Try to maintain a steady beat!");
-                    }
-                }
-
-                // Remove obstacles that are off-screen
-                if (obstacle.x + obstacleWidth < 0) obstacles.splice(index, 1);
-            });
-
-            // Boundary check
-            if (birdY > canvas.height || birdY < 0) {
-                gameOver = true;
-                alert("Game Over! Try to maintain a steady beat!");
-            }
-
-            frameCount++;
-            requestAnimationFrame(gameLoop);
-        }
-
-        // Microphone beat timing detection
-        async function startListening() {
+        async function startCamera() {
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                const analyser = audioContext.createAnalyser();
-                const microphone = audioContext.createMediaStreamSource(stream);
-                microphone.connect(analyser);
-                analyser.fftSize = 256;
-
-                const dataArray = new Uint8Array(analyser.frequencyBinCount);
-
-                function detectBeat() {
-                    analyser.getByteFrequencyData(dataArray);
-                    const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
-
-                    if (average > 50) { // Detect sound above a threshold
-                        const currentTime = Date.now();
-
-                        if (lastBeatTime) {
-                            const interval = currentTime - lastBeatTime;
-                            
-                            if (Math.abs(interval - targetInterval) <= tolerance) {
-                                // Steady beat detected, stabilize the bird
-                                birdVelocity = -1; // Small upward boost
-                            } else if (interval < targetInterval) {
-                                // Too fast, make the bird rise more
-                                birdVelocity = -3;
-                            } else {
-                                // Too slow, make the bird fall
-                                birdVelocity += gravity;
-                            }
-                        }
-                        lastBeatTime = currentTime;
-                    }
-                    requestAnimationFrame(detectBeat);
-                }
-
-                detectBeat();
+                // Access the camera
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment' }
+                });
+                
+                // Set the camera feed to the video element
+                const video = document.getElementById('camera-feed');
+                video.srcObject = stream;
             } catch (error) {
-                console.error("Microphone access error:", error);
+                console.error("Camera access error:", error);
+                alert("Camera access is required to run this AR experience.");
             }
         }
 
-        // Start the game loop and microphone listening
-        gameLoop();
-        startListening();
+        // Start the camera on page load
+        window.addEventListener('load', startCamera);
     </script>
 </body>
 </html>
