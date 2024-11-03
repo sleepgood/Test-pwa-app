@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Thanks Light Sound Game</title>
+    <title>Reaction Time Light Game</title>
     <style>
         body {
             display: flex;
@@ -11,46 +11,39 @@
             align-items: center;
             justify-content: center;
             height: 100vh;
+            margin: 0;
             font-family: Arial, sans-serif;
             background-color: black;
             color: white;
             text-align: center;
+            transition: background-color 0.3s ease;
         }
-        .letter {
-            font-size: 3em;
-            color: grey;
+        #reactionTime {
+            font-size: 2em;
             margin: 20px;
-            transition: color 0.2s ease;
         }
-        #progress {
-            width: 100px;
-            height: 20px;
-            background-color: grey;
+        #startButton {
+            padding: 10px 20px;
+            font-size: 1.5em;
             margin-top: 20px;
-            border-radius: 10px;
-            overflow: hidden;
-        }
-        #fill {
-            height: 100%;
-            background-color: limegreen;
-            width: 0%;
+            cursor: pointer;
         }
     </style>
 </head>
 <body>
-    <h1>Complete the Word</h1>
-    <div class="letter" id="letterT">T</div>
-    <div id="progress">
-        <div id="fill"></div>
-    </div>
-    <p>Make some noise to fill up the letter!</p>
+    <h1>Reaction Time Game</h1>
+    <div id="reactionTime">Press Start to begin!</div>
+    <button id="startButton">Start</button>
 
     <script>
-        const letterT = document.getElementById('letterT');
-        const fillBar = document.getElementById('fill');
-        let fillLevel = 0;
+        let startButton = document.getElementById('startButton');
+        let reactionTimeDisplay = document.getElementById('reactionTime');
+        let startTime;
+        let lightOn = false;
+        let gameActive = false;
+        let reactionTimeout;
 
-        async function startAudioProcessing() {
+        async function listenForSound() {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 const audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -62,24 +55,20 @@
                 const dataArray = new Uint8Array(analyser.frequencyBinCount);
 
                 function detectSound() {
+                    if (!gameActive || !lightOn) {
+                        requestAnimationFrame(detectSound);
+                        return;
+                    }
+
                     analyser.getByteFrequencyData(dataArray);
                     const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
 
-                    // Adjust fill level based on sound intensity
-                    if (average > 50) {
-                        fillLevel = Math.min(100, fillLevel + average / 20);
-                        fillBar.style.width = fillLevel + '%';
-
-                        // Change color to indicate completion of letter
-                        if (fillLevel >= 100) {
-                            letterT.style.color = 'limegreen';
-                        }
+                    if (average > 50) { // Sound threshold for detecting a clap/snap
+                        const reactionTime = Date.now() - startTime;
+                        endGame(reactionTime);
                     } else {
-                        fillLevel = Math.max(0, fillLevel - 1); // Decay when no sound
-                        fillBar.style.width = fillLevel + '%';
+                        requestAnimationFrame(detectSound);
                     }
-
-                    requestAnimationFrame(detectSound);
                 }
 
                 detectSound();
@@ -88,7 +77,38 @@
             }
         }
 
-        startAudioProcessing();
+        function startGame() {
+            gameActive = true;
+            reactionTimeDisplay.textContent = "Get ready...";
+            startButton.style.display = "none";
+            lightOn = false;
+
+            // Set a random delay before the light flashes
+            const randomDelay = Math.floor(Math.random() * 3000) + 1000;
+
+            reactionTimeout = setTimeout(() => {
+                reactionTimeDisplay.textContent = "React!";
+                document.body.style.backgroundColor = "red"; // Flash color
+                lightOn = true;
+                startTime = Date.now(); // Record start time
+            }, randomDelay);
+        }
+
+        function endGame(reactionTime) {
+            gameActive = false;
+            lightOn = false;
+            clearTimeout(reactionTimeout);
+            document.body.style.backgroundColor = "black";
+            reactionTimeDisplay.textContent = `Reaction Time: ${reactionTime} ms`;
+            startButton.style.display = "block";
+            startButton.textContent = "Play Again";
+        }
+
+        // Event listeners
+        startButton.addEventListener('click', startGame);
+
+        // Start listening for sound on load
+        listenForSound();
     </script>
 </body>
 </html>
