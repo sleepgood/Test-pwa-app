@@ -24,15 +24,6 @@
             text-shadow: 0 0 12px #fff, 0 0 24px #fff;
         }
 
-        #sound-indicator {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            font-size: 1em;
-            color: #fff;
-            opacity: 0.7;
-        }
-
         #color-picker {
             display: flex;
             gap: 15px;
@@ -75,7 +66,8 @@
         }
 
         .peg.active {
-            box-shadow: 0 0 5px 2px var(--color), 0 0 12px 8px var(--color);
+            box-shadow: 0 0 5px 5px var(--color), 0 0 12px 12px var(--color), 0 0 20px 20px var(--color);
+            background-color: var(--color);
         }
 
         #controls {
@@ -94,7 +86,6 @@
 </head>
 <body>
     <h1>Thanks Lite-Brite</h1>
-    <div id="sound-indicator">Sound On</div>
 
     <div id="color-picker">
         <div class="color-option" data-color="white">
@@ -140,7 +131,7 @@
         const waveforms = {
             "white": { type: "sine", volume: 0.2 },
             "green": { type: "triangle", volume: 0.2 },
-            "red": { type: "square", volume: 0.1 }, // Reduced volume for square wave
+            "red": { type: "square", volume: 0.15 }, // Reduced volume for square wave
             "blue": { type: "sawtooth", volume: 0.2 }
         };
 
@@ -182,9 +173,9 @@
                 peg.dataset.color = "";
             } else {
                 peg.dataset.active = "true";
-                peg.style.backgroundColor = currentColor;
                 peg.style.setProperty("--color", currentColor);
                 peg.dataset.color = currentColor;
+                peg.classList.add("active");
             }
         }
 
