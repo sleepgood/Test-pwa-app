@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Motion Color Changer</title>
+    <title>Sound-Based Color Changer</title>
     <link rel="manifest" href="./manifest.json">
     <style>
         body {
@@ -15,6 +15,7 @@
             font-family: Arial, sans-serif;
             color: white;
             text-align: center;
+            background-color: black;
         }
         #message {
             font-size: 1.5em;
@@ -22,38 +23,51 @@
     </style>
 </head>
 <body>
-    <div id="message">Tilt your phone to change the background color!</div>
-    
+    <div id="message">Allow microphone access and make some noise!</div>
+
     <script>
-        // Request permission for motion data (necessary on iOS 13+)
-        if (typeof DeviceMotionEvent.requestPermission === 'function') {
-            DeviceMotionEvent.requestPermission()
-                .then(permissionState => {
-                    if (permissionState === 'granted') {
-                        window.addEventListener('devicemotion', handleMotion);
-                    } else {
-                        document.getElementById('message').innerText = "Permission for motion data was denied.";
+        const message = document.getElementById('message');
+
+        // Function to start listening to the microphone
+        async function startAudioProcessing() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                message.innerText = "Microphone access granted. Make some noise!";
+                
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const analyser = audioContext.createAnalyser();
+                const microphone = audioContext.createMediaStreamSource(stream);
+                microphone.connect(analyser);
+                analyser.fftSize = 256;
+
+                const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+                function changeColor() {
+                    analyser.getByteFrequencyData(dataArray);
+                    let values = 0;
+                    for (let i = 0; i < dataArray.length; i++) {
+                        values += dataArray[i];
                     }
-                })
-                .catch(console.error);
-        } else {
-            window.addEventListener('devicemotion', handleMotion);
+
+                    const average = values / dataArray.length;
+                    const red = Math.min(255, Math.floor(average * 2));
+                    const green = 255 - red;
+                    const blue = 128;
+
+                    document.body.style.backgroundColor = `rgb(${red}, ${green}, ${blue})`;
+                    message.innerText = `Sound level: ${Math.floor(average)}`;
+                    requestAnimationFrame(changeColor);
+                }
+
+                changeColor();
+            } catch (error) {
+                message.innerText = "Microphone access denied or not supported.";
+                console.error("Microphone access error:", error);
+            }
         }
 
-        function handleMotion(event) {
-            // Get the acceleration along the x, y, and z axes
-            const x = event.accelerationIncludingGravity.x || 0;
-            const y = event.accelerationIncludingGravity.y || 0;
-            const z = event.accelerationIncludingGravity.z || 0;
-
-            // Map the acceleration values to RGB color values
-            const red = Math.min(255, Math.abs(Math.floor(x * 20)));
-            const green = Math.min(255, Math.abs(Math.floor(y * 20)));
-            const blue = Math.min(255, Math.abs(Math.floor(z * 20)));
-
-            // Set the background color based on the accelerometer data
-            document.body.style.backgroundColor = `rgb(${red}, ${green}, ${blue})`;
-        }
+        // Start audio processing
+        startAudioProcessing();
     </script>
 </body>
 </html>
